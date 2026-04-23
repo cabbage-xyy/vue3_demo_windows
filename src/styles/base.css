@@ -1,0 +1,36 @@
+:root {
+  --app-bg: #f3f7fc;
+  --surface: #ffffff;
+  --text-primary: #1a2334;
+  --text-secondary: #7f90a8;
+  --brand-primary: #2d8cff;
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#app {
+  margin: 0;
+  width: 100%;
+  min-height: 100%;
+}
+
+body {
+  font-family:
+    "PingFang SC",
+    "Microsoft YaHei",
+    "Noto Sans SC",
+    "Helvetica Neue",
+    sans-serif;
+  color: var(--text-primary);
+  background: var(--app-bg);
+}
+
+button {
+  font-family: inherit;
+}

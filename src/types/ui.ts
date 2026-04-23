@@ -1,0 +1,16 @@
+export type IconName =
+  | "home"
+  | "station"
+  | "thermal"
+  | "monitor"
+  | "report"
+  | "setting"
+  | "chevron-down"
+  | "dot"
+  | "progress"
+  | "crown"
+  | "play"
+  | "upload"
+  | "stop-circle"
+  | "file-output"
+  | "more-horizontal";

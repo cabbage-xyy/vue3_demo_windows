@@ -1,12 +1,13 @@
 <template>
-  <Demo />
+  <RouterView />
 </template>
 
 <script setup lang="ts">
+import { RouterView } from "vue-router";
+
 defineOptions({
   name: "App",
 });
-import Demo from "./components/Demo.vue";
 </script>
 
 <style></style>
