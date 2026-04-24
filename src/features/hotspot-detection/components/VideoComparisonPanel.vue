@@ -37,17 +37,21 @@ defineProps<VideoComparisonPanelProps>();
 .video-panel {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 18px;
+  gap: 12px;
 }
 
 .video-card {
-  background: #ffffff;
+  border: 1px solid rgba(224, 232, 243, 0.92);
+  border-radius: 18px;
+  background: linear-gradient(180deg, #ffffff 0%, #f9fbff 100%);
+  padding: 10px;
+  box-shadow: 0 14px 30px rgba(50, 71, 101, 0.07);
 }
 
 .card-title {
-  margin: 0 0 12px;
+  margin: 0 0 7px;
   color: #121a2b;
-  font-size: 32px;
+  font-size: 19px;
   font-weight: 700;
   letter-spacing: 0;
   line-height: 1.1;
@@ -55,10 +59,10 @@ defineProps<VideoComparisonPanelProps>();
 
 .player-shell {
   position: relative;
-  border-radius: 8px;
+  height: clamp(290px, 41vh, 410px);
+  border-radius: 14px;
   overflow: hidden;
   border: 1px solid #d9e3f3;
-  aspect-ratio: 16 / 9;
   background: #0d1a3f;
 }
 
@@ -73,12 +77,12 @@ defineProps<VideoComparisonPanelProps>();
   position: absolute;
   left: 50%;
   top: 50%;
-  width: 68px;
-  height: 68px;
+  width: 48px;
+  height: 48px;
   transform: translate(-50%, -50%);
   border: 0;
   border-radius: 999px;
-  background: rgba(255, 255, 255, 0.3);
+  background: rgba(255, 255, 255, 0.34);
   color: #ffffff;
   display: inline-flex;
   align-items: center;
@@ -88,9 +92,9 @@ defineProps<VideoComparisonPanelProps>();
 
 .player-timeline {
   position: absolute;
-  left: 16px;
-  right: 16px;
-  bottom: 14px;
+  left: 18px;
+  right: 18px;
+  bottom: 12px;
   height: 14px;
 }
 

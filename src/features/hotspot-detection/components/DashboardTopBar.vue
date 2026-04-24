@@ -15,16 +15,6 @@
         <span>{{ statusText }}</span>
         <BaseIcon name="chevron-down" :size="16" />
       </button>
-
-      <button type="button" class="state-button">
-        <BaseIcon name="progress" :size="16" />
-        <span>进度</span>
-        <span class="progress-value">
-          <BaseIcon name="crown" :size="14" />
-          {{ progressText }}
-        </span>
-        <BaseIcon name="chevron-down" :size="16" />
-      </button>
     </div>
   </header>
 </template>
@@ -40,7 +30,6 @@ defineOptions({
 interface DashboardTopBarProps {
   filters: HeaderFilter[];
   statusText: string;
-  progressText: string;
 }
 
 defineProps<DashboardTopBarProps>();
@@ -48,15 +37,19 @@ defineProps<DashboardTopBarProps>();
 
 <style scoped>
 .topbar {
-  height: 76px;
-  padding: 0 22px;
-  border-bottom: 1px solid #e4e9f2;
-  background: #ffffff;
+  position: relative;
+  z-index: 30;
+  min-height: 50px;
+  padding: 7px 12px;
+  border: 1px solid rgba(224, 232, 243, 0.92);
+  border-radius: 20px;
+  background: rgba(255, 255, 255, 0.78);
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 16px;
-  overflow-x: auto;
+  overflow: visible;
+  box-shadow: 0 14px 34px rgba(50, 71, 101, 0.07);
 }
 
 .left,
@@ -66,10 +59,15 @@ defineProps<DashboardTopBarProps>();
   gap: 12px;
 }
 
+.right {
+  position: relative;
+}
+
 .section-label {
   position: relative;
-  padding-left: 14px;
-  font-weight: 600;
+  padding-left: 12px;
+  font-size: 15px;
+  font-weight: 700;
   color: #1a2538;
   white-space: nowrap;
 }
@@ -80,7 +78,7 @@ defineProps<DashboardTopBarProps>();
   left: 0;
   top: 50%;
   width: 3px;
-  height: 16px;
+  height: 14px;
   border-radius: 2px;
   transform: translateY(-50%);
   background: #2b82ff;
@@ -88,39 +86,35 @@ defineProps<DashboardTopBarProps>();
 
 .filter-button,
 .state-button {
-  height: 40px;
-  border: 1px solid #dbe4f0;
-  border-radius: 8px;
-  background: #ffffff;
+  height: 30px;
+  border: 1px solid rgba(219, 228, 240, 0.92);
+  border-radius: 999px;
+  background: rgba(248, 251, 255, 0.86);
   color: #27364f;
   display: inline-flex;
   align-items: center;
   gap: 8px;
-  padding: 0 12px;
-  font-size: 14px;
+  padding: 0 13px;
+  font-size: 13px;
   white-space: nowrap;
 }
 
+.state-button {
+  cursor: pointer;
+}
+
 .dot {
-  width: 12px;
-  height: 12px;
+  width: 9px;
+  height: 9px;
   border-radius: 999px;
   border: 1px solid #d3deef;
   background: #f4f7fd;
 }
 
-.progress-value {
-  color: #1d2a3e;
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  margin-left: 4px;
-}
-
 @media (max-width: 1200px) {
   .topbar {
     height: auto;
-    padding: 12px 16px;
+    padding: 8px 12px;
     flex-wrap: wrap;
   }
 }
