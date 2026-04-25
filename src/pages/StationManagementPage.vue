@@ -51,10 +51,10 @@
               <span role="cell">{{ station.owner }}</span>
               <div class="row-actions" role="cell">
                 <button type="button" aria-label="编辑电站" @click="openEditForm(station)">
-                  <BaseIcon name="edit" :size="15" />
+                  <BaseIcon name="edit" :size="18" :stroke-width="2.6" />
                 </button>
                 <button type="button" aria-label="删除电站" @click="deleteStation(station.id)">
-                  <BaseIcon name="trash" :size="15" />
+                  <BaseIcon name="trash" :size="17" :stroke-width="2.5" />
                 </button>
               </div>
             </div>
@@ -573,7 +573,7 @@ const deleteStation = (stationId: number) => {
   border-radius: 12px;
   background: #ffffff;
   display: grid;
-  grid-template-columns: minmax(280px, 1.7fr) minmax(130px, 0.9fr) minmax(110px, 0.75fr) minmax(110px, 0.7fr) minmax(110px, 0.7fr) minmax(100px, 0.5fr);
+  grid-template-columns: minmax(280px, 1.7fr) minmax(130px, 0.9fr) minmax(110px, 0.75fr) minmax(110px, 0.7fr) minmax(110px, 0.7fr) 96px;
   align-items: center;
   gap: 12px;
   padding: 6px 10px;
@@ -586,6 +586,10 @@ const deleteStation = (stationId: number) => {
   background: #f5f8fd;
   font-size: 12px;
   font-weight: 700;
+}
+
+.table-head span:last-child {
+  text-align: center;
 }
 
 .station-name {
@@ -623,22 +627,38 @@ const deleteStation = (stationId: number) => {
 
 .row-actions {
   display: flex;
-  justify-content: flex-end;
-  gap: 8px;
+  justify-content: center;
+  gap: 10px;
 }
 
 .row-actions button,
 .ghost-icon {
-  width: 26px;
-  height: 26px;
-  border: 1px solid #dbe5f2;
-  border-radius: 999px;
+  width: 30px;
+  height: 30px;
+  border: 0;
+  border-radius: 8px;
   background: #ffffff;
-  color: #2b66dd;
+  color: #0b0f18;
   display: inline-flex;
   align-items: center;
   justify-content: center;
   cursor: pointer;
+  transition:
+    background-color 0.16s ease,
+    box-shadow 0.16s ease,
+    transform 0.16s ease;
+}
+
+.row-actions button:hover {
+  background: #f5f8fd;
+  box-shadow: inset 0 0 0 1px #dbe5f2;
+  transform: translateY(-1px);
+}
+
+.ghost-icon {
+  border: 1px solid #dbe5f2;
+  border-radius: 999px;
+  color: #2b66dd;
 }
 
 .empty-state {

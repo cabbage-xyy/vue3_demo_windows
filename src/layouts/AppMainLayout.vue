@@ -20,14 +20,6 @@
         </div>
 
         <div class="header-badges">
-          <span class="badge">
-            <strong>128</strong>
-            在线设备
-          </span>
-          <span class="badge">
-            <strong>06</strong>
-            待处理告警
-          </span>
           <div class="assistant-entry">
             <button type="button" class="ai-command" @click="toggleAssistant">
               <BaseIcon name="bot" :size="16" />
@@ -75,6 +67,13 @@
               </form>
             </section>
           </div>
+          <button type="button" class="header-icon-button notification-button" aria-label="通知">
+            <BaseIcon name="bell" :size="17" />
+            <span class="notification-dot"></span>
+          </button>
+          <button type="button" class="user-avatar" aria-label="用户中心">
+            <span>刘</span>
+          </button>
         </div>
       </nav>
 
@@ -243,8 +242,10 @@ const submitCommand = () => {
 
 .app-main {
   min-width: 0;
+  min-height: 0;
   padding: 0 22px 14px;
   flex: 1;
+  display: grid;
   overflow: hidden;
 }
 
@@ -258,25 +259,45 @@ const submitCommand = () => {
   justify-content: flex-end;
 }
 
-.badge {
-  min-height: 34px;
-  min-width: 92px;
-  padding: 5px 12px;
-  border-radius: 16px;
+.header-icon-button,
+.user-avatar {
+  width: 38px;
+  height: 38px;
   border: 1px solid rgba(220, 229, 241, 0.92);
   background: rgba(255, 255, 255, 0.78);
-  color: #6c7d95;
-  display: grid;
-  align-content: center;
-  gap: 2px;
-  font-size: 12px;
+  color: #35506f;
+  border-radius: 999px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   box-shadow: 0 12px 28px rgba(47, 91, 150, 0.07);
+  cursor: pointer;
 }
 
-.badge strong {
-  color: #192132;
-  font-size: 16px;
-  line-height: 1;
+.notification-button {
+  position: relative;
+}
+
+.notification-dot {
+  position: absolute;
+  top: 8px;
+  right: 9px;
+  width: 7px;
+  height: 7px;
+  border: 2px solid #ffffff;
+  border-radius: 999px;
+  background: #ff5b6e;
+}
+
+.user-avatar {
+  border-color: rgba(58, 135, 255, 0.38);
+  background: linear-gradient(135deg, #39a2ff 0%, #236bf4 100%);
+  color: #ffffff;
+  font-size: 14px;
+  font-weight: 800;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.28),
+    0 10px 22px rgba(47, 130, 255, 0.18);
 }
 
 .assistant-entry {
@@ -449,7 +470,9 @@ const submitCommand = () => {
 
 .app-content {
   min-width: 0;
-  min-height: 100%;
+  min-height: 0;
+  height: 100%;
+  overflow: hidden;
 }
 
 @media (max-width: 1080px) {
@@ -497,7 +520,8 @@ const submitCommand = () => {
     justify-content: stretch;
   }
 
-  .badge {
+  .header-icon-button,
+  .user-avatar {
     flex: 1;
   }
 }

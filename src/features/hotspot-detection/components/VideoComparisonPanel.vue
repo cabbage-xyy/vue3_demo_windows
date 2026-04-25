@@ -35,16 +35,20 @@ defineProps<VideoComparisonPanelProps>();
 
 <style scoped>
 .video-panel {
+  min-height: 0;
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 12px;
 }
 
 .video-card {
+  min-height: 0;
   border: 1px solid rgba(224, 232, 243, 0.92);
   border-radius: 18px;
   background: linear-gradient(180deg, #ffffff 0%, #f9fbff 100%);
   padding: 10px;
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
   box-shadow: 0 14px 30px rgba(50, 71, 101, 0.07);
 }
 
@@ -59,7 +63,8 @@ defineProps<VideoComparisonPanelProps>();
 
 .player-shell {
   position: relative;
-  height: clamp(290px, 41vh, 410px);
+  min-height: 0;
+  height: 100%;
   border-radius: 14px;
   overflow: hidden;
   border: 1px solid #d9e3f3;
@@ -130,6 +135,11 @@ defineProps<VideoComparisonPanelProps>();
 @media (max-width: 1180px) {
   .video-panel {
     grid-template-columns: 1fr;
+    overflow-y: auto;
+  }
+
+  .video-card {
+    min-height: 260px;
   }
 }
 </style>

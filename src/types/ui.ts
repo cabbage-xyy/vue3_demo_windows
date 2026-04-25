@@ -2,6 +2,7 @@ export type IconName =
   | "monitor"
   | "station"
   | "bot"
+  | "bell"
   | "chevron-down"
   | "x"
   | "dot"
@@ -16,4 +17,5 @@ export type IconName =
   | "upload"
   | "stop-circle"
   | "file-output"
+  | "maximize"
   | "more-horizontal";
