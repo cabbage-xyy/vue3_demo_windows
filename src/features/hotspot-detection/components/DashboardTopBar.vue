@@ -1,19 +1,27 @@
 <template>
-  <header class="topbar">
-    <div class="left">
-      <span class="section-label">热斑检测</span>
-
-      <button v-for="filter in filters" :key="filter.id" type="button" class="filter-button">
-        <span class="dot"></span>
-        <span>{{ filter.value }}</span>
-        <BaseIcon name="chevron-down" :size="16" />
-      </button>
+  <header class="task-strip">
+    <div class="task-title">
+      <span>热斑检测</span>
+      <strong>当前任务：屋顶 A-03</strong>
     </div>
 
-    <div class="right">
-      <button type="button" class="state-button">
-        <span>{{ statusText }}</span>
-        <BaseIcon name="chevron-down" :size="16" />
+    <div class="task-tags" aria-label="当前检测任务信息">
+      <button type="button">
+        <span>电站</span>
+        SUNREN 光伏站
+      </button>
+      <button type="button">
+        <span>视频源</span>
+        无人机巡检视频
+      </button>
+      <button type="button">
+        <span>模式</span>
+        可见光 + 红外融合
+      </button>
+      <button type="button" class="status-chip">
+        <span>状态</span>
+        {{ statusText }}
+        <BaseIcon name="chevron-down" :size="14" />
       </button>
     </div>
   </header>
@@ -36,43 +44,39 @@ defineProps<DashboardTopBarProps>();
 </script>
 
 <style scoped>
-.topbar {
+.task-strip {
   position: relative;
   z-index: 30;
-  min-height: 50px;
-  padding: 7px 12px;
+  min-height: 48px;
+  padding: 8px 12px;
   border: 1px solid rgba(224, 232, 243, 0.92);
-  border-radius: 20px;
-  background: rgba(255, 255, 255, 0.78);
+  border-radius: 18px;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.88), rgba(248, 251, 255, 0.82)),
+    #ffffff;
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 16px;
-  overflow: visible;
-  box-shadow: 0 14px 34px rgba(50, 71, 101, 0.07);
+  gap: 14px;
+  box-shadow: 0 12px 28px rgba(50, 71, 101, 0.06);
 }
 
-.left,
-.right {
+.task-title {
+  min-width: 210px;
   display: flex;
-  align-items: center;
-  gap: 12px;
+  align-items: baseline;
+  gap: 10px;
 }
 
-.right {
-  position: relative;
-}
-
-.section-label {
+.task-title span {
   position: relative;
   padding-left: 12px;
-  font-size: 15px;
-  font-weight: 700;
-  color: #1a2538;
-  white-space: nowrap;
+  color: #71829b;
+  font-size: 12px;
+  font-weight: 900;
 }
 
-.section-label::before {
+.task-title span::before {
   content: "";
   position: absolute;
   left: 0;
@@ -84,38 +88,49 @@ defineProps<DashboardTopBarProps>();
   background: #2b82ff;
 }
 
-.filter-button,
-.state-button {
-  height: 30px;
-  border: 1px solid rgba(219, 228, 240, 0.92);
-  border-radius: 999px;
-  background: rgba(248, 251, 255, 0.86);
-  color: #27364f;
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  padding: 0 13px;
-  font-size: 13px;
+.task-title strong {
+  color: #1a2538;
+  font-size: 14px;
   white-space: nowrap;
 }
 
-.state-button {
+.task-tags {
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.task-tags button {
+  height: 30px;
+  border: 1px solid rgba(219, 228, 240, 0.92);
+  border-radius: 999px;
+  background: rgba(248, 251, 255, 0.72);
+  color: #27364f;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 0 12px;
+  font-size: 12px;
+  font-weight: 800;
+  white-space: nowrap;
   cursor: pointer;
 }
 
-.dot {
-  width: 9px;
-  height: 9px;
-  border-radius: 999px;
-  border: 1px solid #d3deef;
-  background: #f4f7fd;
+.task-tags button span {
+  color: #7d8da5;
 }
 
 @media (max-width: 1200px) {
-  .topbar {
+  .task-strip {
     height: auto;
-    padding: 8px 12px;
     flex-wrap: wrap;
+  }
+
+  .task-tags {
+    justify-content: flex-start;
   }
 }
 </style>

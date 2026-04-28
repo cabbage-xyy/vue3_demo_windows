@@ -6,6 +6,7 @@
       type="button"
       class="action-button"
       :class="buttonItem.variant"
+      :disabled="disabledActionIds.includes(buttonItem.id)"
       @click="emit('action', buttonItem.id)"
     >
       <BaseIcon :name="buttonItem.icon" :size="16" />
@@ -24,9 +25,12 @@ defineOptions({
 
 interface ActionToolbarProps {
   actions: ActionButton[];
+  disabledActionIds?: string[];
 }
 
-defineProps<ActionToolbarProps>();
+withDefaults(defineProps<ActionToolbarProps>(), {
+  disabledActionIds: () => [],
+});
 
 const emit = defineEmits<{
   action: [actionId: string];
@@ -115,6 +119,13 @@ const emit = defineEmits<{
 .action-button:hover {
   transform: translateY(-2px);
   filter: saturate(1.08);
+}
+
+.action-button:disabled {
+  cursor: not-allowed;
+  opacity: 0.48;
+  transform: none;
+  filter: grayscale(0.18);
 }
 
 .action-button.primary:hover {

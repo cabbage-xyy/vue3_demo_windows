@@ -43,7 +43,9 @@
           <div class="table-body">
             <div v-for="station in filteredStations" :key="station.id" class="table-row" role="row">
               <div class="station-name" role="cell">
-                <strong>{{ station.name }}</strong>
+                <button type="button" class="station-link" @click="openStationDetail(station)">
+                  {{ station.name }}
+                </button>
               </div>
               <span role="cell">{{ station.region }}</span>
               <span role="cell">{{ station.capacity }}</span>
@@ -111,6 +113,96 @@
             {{ formMode === "create" ? "创建电站" : "保存修改" }}
           </button>
         </form>
+      </aside>
+    </div>
+
+    <div v-if="selectedStation" class="detail-overlay" @click.self="closeStationDetail">
+      <aside class="detail-panel station-detail-scroll" aria-label="电站详情">
+        <header>
+          <div>
+            <p class="eyebrow">Station detail</p>
+            <h2>{{ selectedStation.name }}</h2>
+            <span class="detail-code">{{ selectedStation.code }}</span>
+          </div>
+          <button type="button" class="ghost-icon" aria-label="关闭电站详情" @click="closeStationDetail">
+            <BaseIcon name="x" :size="16" />
+          </button>
+        </header>
+
+        <section class="detail-hero">
+          <div>
+            <span>装机容量</span>
+            <strong>{{ selectedStation.capacity }}</strong>
+          </div>
+          <div>
+            <span>运行状态</span>
+            <strong class="status-pill" :class="selectedStation.status">{{ selectedStation.status }}</strong>
+          </div>
+          <div>
+            <span>负责人</span>
+            <strong>{{ selectedStation.owner }}</strong>
+          </div>
+        </section>
+
+        <section class="detail-section">
+          <h3>基础信息</h3>
+          <dl class="detail-grid">
+            <div>
+              <dt>电站名称</dt>
+              <dd>{{ selectedStation.name }}</dd>
+            </div>
+            <div>
+              <dt>电站编码</dt>
+              <dd>{{ selectedStation.code }}</dd>
+            </div>
+            <div>
+              <dt>所属区域</dt>
+              <dd>{{ selectedStation.region }}</dd>
+            </div>
+            <div>
+              <dt>并网电压</dt>
+              <dd>{{ selectedStationDetail.gridVoltage }}</dd>
+            </div>
+            <div>
+              <dt>投运日期</dt>
+              <dd>{{ selectedStationDetail.commissionedAt }}</dd>
+            </div>
+            <div>
+              <dt>详细地址</dt>
+              <dd>{{ selectedStationDetail.address }}</dd>
+            </div>
+          </dl>
+        </section>
+
+        <section class="detail-section">
+          <h3>资产与运行</h3>
+          <dl class="detail-grid">
+            <div>
+              <dt>组件数量</dt>
+              <dd>{{ selectedStationDetail.moduleCount }}</dd>
+            </div>
+            <div>
+              <dt>逆变器</dt>
+              <dd>{{ selectedStationDetail.inverterCount }}</dd>
+            </div>
+            <div>
+              <dt>今日发电</dt>
+              <dd>{{ selectedStationDetail.todayEnergy }}</dd>
+            </div>
+            <div>
+              <dt>月累计发电</dt>
+              <dd>{{ selectedStationDetail.monthEnergy }}</dd>
+            </div>
+            <div>
+              <dt>年等效小时</dt>
+              <dd>{{ selectedStationDetail.equivalentHours }}</dd>
+            </div>
+            <div>
+              <dt>最近巡检</dt>
+              <dd>{{ selectedStationDetail.lastInspection }}</dd>
+            </div>
+          </dl>
+        </section>
       </aside>
     </div>
   </section>
@@ -264,6 +356,7 @@ const statusFilter = ref<StationStatus | "all">("all");
 const formMode = ref<FormMode>("create");
 const editingStationId = ref<number | null>(null);
 const isFormOpen = ref(false);
+const selectedStation = ref<StationRecord | null>(null);
 const stationForm = reactive<StationForm>(createEmptyForm());
 
 const filteredStations = computed(() => {
@@ -286,6 +379,41 @@ const summaryItems = computed(() => [
   { label: "维护中", value: stations.value.filter((station) => station.status === "维护中").length },
   { label: "总容量", value: "274.4 MW" },
 ]);
+
+const selectedStationDetail = computed(() => {
+  const station = selectedStation.value;
+
+  if (!station) {
+    return {
+      address: "",
+      commissionedAt: "",
+      gridVoltage: "",
+      moduleCount: "",
+      inverterCount: "",
+      todayEnergy: "",
+      monthEnergy: "",
+      equivalentHours: "",
+      lastInspection: "",
+    };
+  }
+
+  const capacityNumber = Number.parseFloat(station.capacity);
+  const moduleCount = Number.isFinite(capacityNumber) ? Math.round((capacityNumber * 1000) / 0.58) : 0;
+  const inverterCount = Number.isFinite(capacityNumber) ? Math.max(1, Math.round(capacityNumber / 2.8)) : 0;
+  const baseMonthEnergy = Number.isFinite(capacityNumber) ? Math.round(capacityNumber * 112) : 0;
+
+  return {
+    address: `${station.region} · ${station.name.replace("电站", "项目现场")}`,
+    commissionedAt: `202${station.id % 4}-0${(station.id % 8) + 1}-18`,
+    gridVoltage: Number.isFinite(capacityNumber) && capacityNumber >= 30 ? "35 kV" : "10 kV",
+    moduleCount: moduleCount > 0 ? `${moduleCount.toLocaleString()} 块` : "待录入",
+    inverterCount: inverterCount > 0 ? `${inverterCount} 台` : "待录入",
+    todayEnergy: Number.isFinite(capacityNumber) ? `${(capacityNumber * 3.8).toFixed(1)} MWh` : "待统计",
+    monthEnergy: baseMonthEnergy > 0 ? `${baseMonthEnergy.toLocaleString()} MWh` : "待统计",
+    equivalentHours: Number.isFinite(capacityNumber) ? `${(980 + station.id * 17).toLocaleString()} h` : "待统计",
+    lastInspection: station.status === "离线" ? "待安排" : `2026-04-${String(14 + station.id).padStart(2, "0")} 09:30`,
+  };
+});
 
 const assignForm = (station: StationForm) => {
   stationForm.name = station.name;
@@ -312,6 +440,14 @@ const openEditForm = (station: StationRecord) => {
   editingStationId.value = station.id;
   assignForm(station);
   isFormOpen.value = true;
+};
+
+const openStationDetail = (station: StationRecord) => {
+  selectedStation.value = station;
+};
+
+const closeStationDetail = () => {
+  selectedStation.value = null;
 };
 
 const closeForm = () => {
@@ -596,10 +732,30 @@ const deleteStation = (stationId: number) => {
   min-width: 0;
 }
 
-.station-name strong {
+.station-link {
+  max-width: 100%;
+  border: 0;
+  background: transparent;
+  color: #182438;
+  padding: 0;
+  font: inherit;
   color: #182438;
   font-size: 15px;
+  font-weight: 800;
   line-height: 1.2;
+  text-align: left;
+  cursor: pointer;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.station-link:hover,
+.station-link:focus-visible {
+  color: #1f66ed;
+  text-decoration: underline;
+  text-underline-offset: 4px;
+  outline: none;
 }
 
 .status-pill {
@@ -670,7 +826,8 @@ const deleteStation = (stationId: number) => {
   text-align: center;
 }
 
-.form-overlay {
+.form-overlay,
+.detail-overlay {
   position: fixed;
   inset: 0;
   z-index: 80;
@@ -682,7 +839,8 @@ const deleteStation = (stationId: number) => {
   align-items: center;
 }
 
-.form-panel {
+.form-panel,
+.detail-panel {
   width: min(520px, 100%);
   max-height: min(760px, calc(100vh - 56px));
   min-width: 0;
@@ -696,7 +854,8 @@ const deleteStation = (stationId: number) => {
   overflow-y: auto;
 }
 
-.form-panel header {
+.form-panel header,
+.detail-panel header {
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
@@ -704,8 +863,111 @@ const deleteStation = (stationId: number) => {
   margin-bottom: 14px;
 }
 
-.form-panel h2 {
+.form-panel h2,
+.detail-panel h2 {
   font-size: 20px;
+}
+
+.detail-panel {
+  width: min(760px, 100%);
+}
+
+.station-detail-scroll {
+  overflow-y: auto;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+.station-detail-scroll::-webkit-scrollbar {
+  width: 0;
+  height: 0;
+  display: none;
+}
+
+.detail-code {
+  display: inline-flex;
+  margin-top: 8px;
+  border-radius: 999px;
+  background: #eef5ff;
+  color: #2b66dd;
+  padding: 5px 10px;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.detail-hero {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+  margin-bottom: 14px;
+}
+
+.detail-hero > div,
+.detail-section {
+  border: 1px solid rgba(224, 232, 243, 0.82);
+  border-radius: 16px;
+  background: rgba(248, 251, 255, 0.72);
+}
+
+.detail-hero > div {
+  min-width: 0;
+  padding: 12px;
+  display: grid;
+  gap: 8px;
+}
+
+.detail-hero span,
+.detail-grid dt {
+  color: #71829b;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.detail-hero strong {
+  min-width: 0;
+  color: #111827;
+  font-size: 20px;
+  line-height: 1.1;
+}
+
+.detail-section {
+  padding: 14px;
+}
+
+.detail-section + .detail-section {
+  margin-top: 12px;
+}
+
+.detail-section h3 {
+  margin: 0 0 12px;
+  color: #172033;
+  font-size: 15px;
+}
+
+.detail-grid {
+  margin: 0;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.detail-grid div {
+  min-width: 0;
+  border-bottom: 1px solid rgba(224, 232, 243, 0.72);
+  padding-bottom: 10px;
+}
+
+.detail-grid dt,
+.detail-grid dd {
+  margin: 0;
+}
+
+.detail-grid dd {
+  margin-top: 5px;
+  color: #1f2c42;
+  font-size: 14px;
+  font-weight: 800;
+  overflow-wrap: anywhere;
 }
 
 .station-form {
@@ -767,6 +1029,11 @@ const deleteStation = (stationId: number) => {
 
   .form-panel {
     width: 100%;
+  }
+
+  .detail-hero,
+  .detail-grid {
+    grid-template-columns: 1fr;
   }
 }
 </style>
