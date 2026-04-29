@@ -4,18 +4,27 @@ export interface HeaderFilter {
   id: string;
   label: string;
   value: string;
+  selected?: boolean;
 }
 
 export interface VideoCard {
   id: string;
   title: string;
   imageUrl: string;
+  streamTitle?: string;
+  currentTime?: string;
+  duration?: string;
+  progress?: number;
+  fps?: string;
+  resolution?: string;
 }
 
 export interface MetricCard {
   id: string;
   title: string;
   value: string;
+  helper?: string;
+  icon?: IconName;
 }
 
 export type ActionButtonVariant = "primary" | "secondary";
@@ -60,8 +69,15 @@ export interface DiagnosticInsight {
 export interface RunLogItem {
   id: number;
   taskName: string;
+  stationName: string;
   startTime: string;
   endTime: string | null;
-  hasHotspot: boolean | null;
-  abnormalCount: number;
+  hotspotPositions: string[] | null;
+  abnormalCount: number | null;
+}
+
+export interface StatusNotice {
+  id: string;
+  content: string;
+  linkLabel?: string;
 }

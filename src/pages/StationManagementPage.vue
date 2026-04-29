@@ -554,7 +554,7 @@ const deleteStation = (stationId: number) => {
 
 .summary-card {
   min-height: 50px;
-  border-radius: 14px;
+  border-radius: 8px;
   padding: 9px 14px;
   display: flex;
   align-items: center;
@@ -576,7 +576,7 @@ const deleteStation = (stationId: number) => {
 
 .workspace {
   min-height: 0;
-  border-radius: 18px;
+  border-radius: 8px;
   padding: 10px 10px 12px;
   overflow: hidden;
 }
@@ -684,7 +684,7 @@ const deleteStation = (stationId: number) => {
   align-content: start;
   gap: 6px;
   overflow: hidden;
-  border-radius: 14px;
+  border-radius: 8px;
 }
 
 .table-body {
@@ -706,7 +706,7 @@ const deleteStation = (stationId: number) => {
 .table-row {
   min-height: 48px;
   border: 1px solid rgba(224, 232, 243, 0.85);
-  border-radius: 12px;
+  border-radius: 8px;
   background: #ffffff;
   display: grid;
   grid-template-columns: minmax(280px, 1.7fr) minmax(130px, 0.9fr) minmax(110px, 0.75fr) minmax(110px, 0.7fr) minmax(110px, 0.7fr) 96px;

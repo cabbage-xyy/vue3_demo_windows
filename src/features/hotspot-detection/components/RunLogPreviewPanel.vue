@@ -1,32 +1,33 @@
 <template>
-  <section class="run-log-panel" aria-label="运行日志">
+  <section class="run-log-panel" aria-label="检测记录">
     <header>
       <div class="panel-title">
-        <span>Task feed</span>
-        <strong>最近检测流</strong>
+        <span aria-hidden="true"></span>
+        <h2>检测记录</h2>
       </div>
-      <div class="panel-tools">
-        <span class="run-state">{{ hasActiveLog ? "检测中" : "等待检测" }}</span>
-        <button type="button" class="expand-button" @click="emit('expand')">
-          <BaseIcon name="maximize" :size="14" />
-          <span>展开</span>
-        </button>
-      </div>
+      <button
+        type="button"
+        class="panel-more"
+        aria-label="展开检测记录详情"
+        @click="emit('expand')"
+      >
+        <BaseIcon name="more-horizontal" :size="24" :stroke-width="2.8" />
+      </button>
     </header>
 
-    <div class="feed-list" aria-label="最近检测记录">
-      <article
-        v-for="logItem in logs.slice(0, 4)"
-        :key="logItem.id"
-        class="feed-item"
-        :class="{ 'is-selected': logItem.taskName === selectedTaskName }"
-      >
-        <span class="feed-dot" :class="statusClass(logItem.hasHotspot)"></span>
-        <strong>{{ logItem.taskName }}</strong>
-        <span>{{ formatTime(logItem.startTime) }}</span>
-        <span>{{ logItem.endTime ? "检测完成" : "检测中" }}</span>
-        <em :class="statusClass(logItem.hasHotspot)">{{ feedResult(logItem) }}</em>
+    <div v-if="props.logs.length > 0" class="record-copy">
+      <article v-for="record in props.logs" :key="record.id" class="record-row">
+        <strong class="station-name">{{ record.stationName }}</strong>
+        <time>{{ record.endTime ?? "检测中" }}</time>
+        <span class="abnormal-result">
+          <span class="abnormal-badge">异常</span>
+          <strong>{{ formatAbnormalCount(record.abnormalCount) }}</strong>
+        </span>
       </article>
+    </div>
+
+    <div v-else class="record-empty">
+      等待检测任务启动
     </div>
   </section>
 </template>
@@ -41,199 +42,183 @@ defineOptions({
 
 interface RunLogPreviewPanelProps {
   logs: RunLogItem[];
-  hasActiveLog: boolean;
-  selectedTaskName?: string;
 }
 
-defineProps<RunLogPreviewPanelProps>();
+const props = defineProps<RunLogPreviewPanelProps>();
 
 const emit = defineEmits<{
   expand: [];
 }>();
 
-const formatTime = (dateTime: string) => dateTime.slice(11, 16);
-
-const feedResult = (logItem: RunLogItem) => {
-  if (logItem.hasHotspot === null) {
-    return "待确认";
+const formatAbnormalCount = (count: number | null) => {
+  if (count === null) {
+    return "--";
   }
 
-  return logItem.hasHotspot ? `异常 ${logItem.abnormalCount}` : "正常";
-};
-
-const statusClass = (hasHotspot: boolean | null) => {
-  if (hasHotspot === null) {
-    return "pending";
-  }
-
-  return hasHotspot ? "danger" : "normal";
+  return count.toString().padStart(2, "0");
 };
 </script>
 
 <style scoped>
 .run-log-panel {
+  min-width: 0;
+  height: 100%;
   min-height: 0;
-  border: 1px solid rgba(218, 228, 242, 0.64);
-  border-radius: 18px;
-  background: rgba(255, 255, 255, 0.56);
-  padding: 8px 12px;
+  border: 1px solid rgba(224, 232, 243, 0.94);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.96);
+  padding: 14px 18px 12px;
+  box-shadow: 0 12px 26px rgba(45, 73, 110, 0.07);
   display: grid;
   grid-template-rows: auto minmax(0, 1fr);
-  gap: 6px;
-  box-shadow: 0 16px 36px rgba(50, 71, 101, 0.1);
+  gap: 7px;
   overflow: hidden;
-  backdrop-filter: blur(14px);
 }
 
-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-}
-
+header,
 .panel-title {
   min-width: 0;
   display: flex;
-  align-items: baseline;
-  gap: 10px;
+  align-items: center;
+}
+
+header {
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.panel-title {
+  gap: 14px;
 }
 
 .panel-title span {
-  color: #7d8da5;
-  font-size: 12px;
-  font-weight: 800;
-}
-
-.panel-title strong {
-  color: #142039;
-  font-size: 13px;
-  white-space: nowrap;
-}
-
-.panel-tools {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.run-state,
-.expand-button {
-  height: 26px;
+  width: 4px;
+  height: 20px;
   border-radius: 999px;
+  background: #177bff;
+}
+
+.panel-title h2 {
+  margin: 0;
+  color: #101827;
+  font-size: 18px;
+  font-weight: 800;
+  line-height: 1;
+}
+
+.panel-more {
+  width: 50px;
+  height: 26px;
+  border: 1px solid rgba(36, 134, 255, 0.52);
+  border-radius: 10px;
+  background: #ffffff;
+  color: #1578f7;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  font-size: 12px;
-  font-weight: 800;
-}
-
-.run-state {
-  min-width: 64px;
-  background: #eef5ff;
-  color: #245fce;
-  padding: 0 12px;
-}
-
-.expand-button {
-  border: 1px solid rgba(194, 213, 244, 0.95);
-  background: #ffffff;
-  color: #2d65ce;
-  gap: 7px;
-  padding: 0 10px;
   cursor: pointer;
 }
 
-.feed-list {
+.record-copy {
+  min-width: 0;
   min-height: 0;
   display: grid;
   align-content: start;
-  gap: 7px;
-  overflow-y: auto;
-  scrollbar-width: none;
-}
-
-.feed-list::-webkit-scrollbar {
-  display: none;
-}
-
-.feed-item {
-  min-width: 0;
-  min-height: 32px;
-  display: grid;
-  grid-template-columns: auto minmax(170px, 1fr) auto auto auto;
-  align-items: center;
   gap: 10px;
-  border: 0;
-  border-radius: 0;
-  border-bottom: 1px solid rgba(224, 232, 243, 0.72);
-  background: transparent;
-  color: #2b3850;
-  padding: 4px 2px;
-  font-size: 12px;
-  font-weight: 800;
+  overflow-y: auto;
+  padding-right: 8px;
+  scrollbar-color: rgba(148, 163, 184, 0.75) transparent;
 }
 
-.feed-item.is-selected {
-  background: transparent;
-  box-shadow: none;
+.record-row {
+  min-width: 0;
+  display: grid;
+  grid-template-columns: minmax(180px, 1fr) minmax(148px, 0.82fr) minmax(96px, auto);
+  align-items: center;
+  gap: 16px;
+  min-height: 48px;
+  border-bottom: 1px solid rgba(224, 232, 243, 0.92);
 }
 
-.feed-item:last-child {
+.record-row:last-child {
   border-bottom: 0;
 }
 
-.feed-item strong,
-.feed-item span {
+.record-empty {
+  margin: 0;
+  color: #162033;
+  font-size: 13px;
+  font-weight: 500;
+  line-height: 1.4;
+}
+
+.station-name,
+time,
+.abnormal-result {
   min-width: 0;
+  font-weight: 800;
+  line-height: 1.2;
+}
+
+.station-name {
+  color: #101827;
+  font-size: 15px;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-.feed-item span {
-  color: #7d8da5;
+time {
+  color: #162033;
+  font-size: 14px;
+  white-space: nowrap;
 }
 
-.feed-dot {
-  width: 8px;
-  height: 8px;
+.abnormal-result {
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.abnormal-badge {
+  border: 1px solid #f47a18;
   border-radius: 999px;
-  background: #b9c8da;
+  color: #f47a18;
+  background: rgba(255, 247, 237, 0.92);
+  padding: 3px 10px;
+  font-size: 13px;
+  font-weight: 900;
+  line-height: 1;
 }
 
-.feed-item em {
-  min-width: 54px;
-  border-radius: 999px;
-  padding: 4px 9px;
-  text-align: center;
-  font-style: normal;
+.abnormal-result strong {
+  color: #f47a18;
+  font-size: 22px;
+  line-height: 1;
 }
 
-.feed-dot.danger {
-  background: #ff5b6e;
+.record-empty {
+  display: flex;
+  align-items: center;
 }
 
-.feed-dot.normal {
-  background: #29be80;
-}
+@media (max-width: 760px) {
+  .run-log-panel {
+    height: auto;
+    min-height: 150px;
+    padding: 20px;
+  }
 
-.feed-dot.pending {
-  background: #f7a928;
-}
+  .record-row {
+    grid-template-columns: 1fr;
+    align-items: start;
+    gap: 8px;
+    padding: 8px 0;
+  }
 
-.feed-item em.danger {
-  color: #d72d45;
-  background: rgba(255, 91, 110, 0.12);
-}
-
-.feed-item em.normal {
-  color: #16835f;
-  background: rgba(41, 190, 128, 0.12);
-}
-
-.feed-item em.pending {
-  color: #9a6a12;
-  background: rgba(247, 169, 40, 0.14);
+  .abnormal-result {
+    justify-content: flex-start;
+  }
 }
 </style>

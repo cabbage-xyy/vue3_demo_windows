@@ -1,32 +1,34 @@
 <template>
   <Teleport to="body">
     <div v-if="open" class="modal-backdrop" @click.self="emit('close')">
-      <section class="run-log-modal" aria-label="运行日志详情">
+      <section class="run-log-modal" aria-label="检测记录详情">
         <header>
           <div>
-            <span>运行日志</span>
+            <span>检测记录</span>
             <strong>热斑检测完整记录</strong>
           </div>
-          <button type="button" aria-label="关闭运行日志" @click="emit('close')">
+          <button type="button" aria-label="关闭检测记录" @click="emit('close')">
             <BaseIcon name="x" :size="16" />
           </button>
         </header>
 
-        <div class="modal-table" role="table" aria-label="热斑检测完整运行日志">
+        <div class="modal-table" role="table" aria-label="热斑检测完整检测记录">
           <div class="modal-row modal-head" role="row">
-            <span role="columnheader">任务</span>
-            <span role="columnheader">开始时间</span>
-            <span role="columnheader">结束时间</span>
-            <span role="columnheader">是否出现热斑</span>
+            <span role="columnheader">检测任务</span>
+            <span role="columnheader">检测开始</span>
+            <span role="columnheader">检测结束</span>
+            <span role="columnheader">热斑组件位置</span>
+            <span role="columnheader">热斑数量</span>
           </div>
           <div class="modal-body">
             <div v-for="logItem in logs" :key="logItem.id" class="modal-row" role="row">
               <span role="cell">{{ logItem.taskName }}</span>
               <span role="cell">{{ logItem.startTime }}</span>
               <span role="cell">{{ logItem.endTime ?? "检测中" }}</span>
+              <span role="cell" class="position-cell">{{ positionText(logItem.hotspotPositions) }}</span>
               <span role="cell">
-                <strong class="hotspot-status" :class="statusClass(logItem.hasHotspot)">
-                  {{ statusText(logItem.hasHotspot) }}
+                <strong class="hotspot-status" :class="countClass(logItem.abnormalCount)">
+                  {{ countText(logItem.abnormalCount) }}
                 </strong>
               </span>
             </div>
@@ -56,20 +58,32 @@ const emit = defineEmits<{
   close: [];
 }>();
 
-const statusText = (hasHotspot: boolean | null) => {
-  if (hasHotspot === null) {
+const positionText = (hotspotPositions: string[] | null) => {
+  if (hotspotPositions === null) {
+    return "识别中";
+  }
+
+  if (hotspotPositions.length === 0) {
+    return "未发现热斑组件";
+  }
+
+  return hotspotPositions.join("、");
+};
+
+const countText = (abnormalCount: number | null) => {
+  if (abnormalCount === null) {
     return "待确认";
   }
 
-  return hasHotspot ? "是" : "否";
+  return `${abnormalCount} 个`;
 };
 
-const statusClass = (hasHotspot: boolean | null) => {
-  if (hasHotspot === null) {
+const countClass = (abnormalCount: number | null) => {
+  if (abnormalCount === null) {
     return "pending";
   }
 
-  return hasHotspot ? "danger" : "normal";
+  return abnormalCount > 0 ? "danger" : "normal";
 };
 </script>
 
@@ -85,7 +99,7 @@ const statusClass = (hasHotspot: boolean | null) => {
 }
 
 .run-log-modal {
-  width: min(1120px, calc(100vw - 64px));
+  width: min(1240px, calc(100vw - 64px));
   height: min(640px, calc(100vh - 96px));
   min-height: 0;
   border: 1px solid rgba(216, 226, 241, 0.96);
@@ -159,7 +173,12 @@ header button {
   border-radius: 10px;
   background: #f7faff;
   display: grid;
-  grid-template-columns: minmax(180px, 1.2fr) minmax(160px, 1fr) minmax(160px, 1fr) minmax(130px, 0.7fr);
+  grid-template-columns:
+    minmax(150px, 0.9fr)
+    minmax(150px, 0.9fr)
+    minmax(150px, 0.9fr)
+    minmax(220px, 1.3fr)
+    minmax(100px, 0.6fr);
   align-items: center;
   gap: 10px;
   padding: 9px 12px;
@@ -170,6 +189,12 @@ header button {
 
 .modal-head {
   color: #7d8da5;
+}
+
+.position-cell {
+  color: #d75a18;
+  line-height: 1.4;
+  overflow-wrap: anywhere;
 }
 
 .hotspot-status {

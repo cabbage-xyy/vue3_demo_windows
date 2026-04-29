@@ -1,6 +1,7 @@
 import type { RouteRecordRaw } from "vue-router";
 import AppMainLayout from "@/layouts/AppMainLayout.vue";
 import HotspotDetectionPage from "@/pages/HotspotDetectionPage.vue";
+import HotspotManagementPage from "@/pages/HotspotManagementPage.vue";
 import StationManagementPage from "@/pages/StationManagementPage.vue";
 import { routeNames } from "@/router/route-names";
 
@@ -17,6 +18,15 @@ export const routes: RouteRecordRaw[] = [
         meta: {
           title: "热斑检测",
           description: "执行热斑检测任务并查看分析结果。",
+        },
+      },
+      {
+        path: "hotspots",
+        name: routeNames.hotspotManagement,
+        component: HotspotManagementPage,
+        meta: {
+          title: "热斑管理",
+          description: "维护热斑样本、规则和任务基线。",
         },
       },
       {
