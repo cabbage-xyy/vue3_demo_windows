@@ -16,12 +16,25 @@
     </header>
 
     <div v-if="props.logs.length > 0" class="record-copy">
-      <article v-for="record in props.logs" :key="record.id" class="record-row">
+      <article
+        v-for="record in props.logs"
+        :key="record.id"
+        class="record-row"
+        role="button"
+        tabindex="0"
+        @click="emit('select', record)"
+        @keydown.enter.prevent="emit('select', record)"
+        @keydown.space.prevent="emit('select', record)"
+      >
         <strong class="station-name">{{ record.stationName }}</strong>
         <time>{{ record.endTime ?? "检测中" }}</time>
-        <span class="abnormal-result">
-          <span class="abnormal-badge">异常</span>
-          <strong>{{ formatAbnormalCount(record.abnormalCount) }}</strong>
+        <span class="inspection-result" :class="statusClass(record.abnormalCount)">
+          <span class="status-badge">
+            {{ statusText(record.abnormalCount) }}
+            <strong v-if="shouldShowAbnormalCount(record.abnormalCount)">
+              {{ formatAbnormalCount(record.abnormalCount) }}
+            </strong>
+          </span>
         </span>
       </article>
     </div>
@@ -48,6 +61,7 @@ const props = defineProps<RunLogPreviewPanelProps>();
 
 const emit = defineEmits<{
   expand: [];
+  select: [record: RunLogItem];
 }>();
 
 const formatAbnormalCount = (count: number | null) => {
@@ -55,8 +69,26 @@ const formatAbnormalCount = (count: number | null) => {
     return "--";
   }
 
-  return count.toString().padStart(2, "0");
+  return count.toString();
 };
+
+const statusText = (count: number | null) => {
+  if (count === null) {
+    return "检测中";
+  }
+
+  return count > 0 ? "异常" : "正常";
+};
+
+const statusClass = (count: number | null) => {
+  if (count === null) {
+    return "pending";
+  }
+
+  return count > 0 ? "abnormal" : "normal";
+};
+
+const shouldShowAbnormalCount = (count: number | null) => count !== null && count > 0;
 </script>
 
 <style scoped>
@@ -132,12 +164,22 @@ header {
 
 .record-row {
   min-width: 0;
+  border: 0;
+  background: transparent;
   display: grid;
   grid-template-columns: minmax(180px, 1fr) minmax(148px, 0.82fr) minmax(96px, auto);
   align-items: center;
   gap: 16px;
   min-height: 48px;
   border-bottom: 1px solid rgba(224, 232, 243, 0.92);
+  cursor: pointer;
+  outline: none;
+  transition: background 0.16s ease;
+}
+
+.record-row:hover,
+.record-row:focus-visible {
+  background: rgba(247, 250, 255, 0.92);
 }
 
 .record-row:last-child {
@@ -154,7 +196,7 @@ header {
 
 .station-name,
 time,
-.abnormal-result {
+.inspection-result {
   min-width: 0;
   font-weight: 800;
   line-height: 1.2;
@@ -174,27 +216,45 @@ time {
   white-space: nowrap;
 }
 
-.abnormal-result {
+.inspection-result {
   display: inline-flex;
   align-items: center;
   justify-content: flex-end;
-  gap: 8px;
 }
 
-.abnormal-badge {
-  border: 1px solid #f47a18;
+.status-badge {
+  border: 1px solid currentColor;
   border-radius: 999px;
-  color: #f47a18;
-  background: rgba(255, 247, 237, 0.92);
   padding: 3px 10px;
   font-size: 13px;
   font-weight: 900;
   line-height: 1;
+  display: inline-flex;
+  align-items: baseline;
+  gap: 5px;
 }
 
-.abnormal-result strong {
+.inspection-result.abnormal,
+.inspection-result.pending {
   color: #f47a18;
-  font-size: 22px;
+}
+
+.inspection-result.abnormal .status-badge,
+.inspection-result.pending .status-badge {
+  background: rgba(255, 247, 237, 0.92);
+}
+
+.inspection-result.normal {
+  color: #18a45f;
+}
+
+.inspection-result.normal .status-badge {
+  background: rgba(232, 248, 239, 0.95);
+}
+
+.status-badge strong {
+  font-size: 14px;
+  font-weight: 900;
   line-height: 1;
 }
 
@@ -217,7 +277,7 @@ time {
     padding: 8px 0;
   }
 
-  .abnormal-result {
+  .inspection-result {
     justify-content: flex-start;
   }
 }

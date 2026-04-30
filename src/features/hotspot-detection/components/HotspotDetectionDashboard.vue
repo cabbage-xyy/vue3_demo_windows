@@ -1,20 +1,12 @@
 <template>
   <div class="hotspot-dashboard">
-    <input
-      ref="videoInputRef"
-      class="video-file-input"
-      type="file"
-      accept="video/mp4,video/avi,video/*"
-      @change="handleVideoFileChange"
-    />
-
     <section class="inspection-board" aria-label="热斑检测工作台">
       <div class="video-grid">
         <DetectionVideoPlayer
           v-for="video in videoCards"
           :key="video.id"
           :video="video"
-          :media-url="video.id === 'source-video' ? importedVideo?.url : null"
+          :media-url="video.id === 'source-video' ? importedVideo?.url : video.id === 'result-video' ? resultVideoUrl : null"
         />
       </div>
 
@@ -28,25 +20,31 @@
           <h2>操作控制</h2>
         </header>
 
-        <ActionToolbar :actions="actionButtons" :disabled-action-ids="disabledActionIds" @action="handleToolbarAction" />
+        <ActionToolbar
+          :actions="actionButtons"
+          :disabled-action-ids="disabledActionIds"
+          @action="handleToolbarAction"
+        />
       </aside>
 
       <RunLogPreviewPanel
         :logs="runLogs"
-        @expand="isRunLogModalOpen = true"
+        @expand="openRunLogModal()"
+        @select="openRunLogModal"
       />
     </section>
 
     <RunLogDetailModal
       :open="isRunLogModalOpen"
-      :logs="runLogs"
-      @close="isRunLogModalOpen = false"
+      :logs="modalRunLogs"
+      @close="closeRunLogModal"
     />
   </div>
 </template>
 
 <script setup lang="ts">
 import { computed, onBeforeUnmount, ref } from "vue";
+import { open, save } from "@tauri-apps/plugin-dialog";
 import ActionToolbar from "@/features/hotspot-detection/components/ActionToolbar.vue";
 import DetectionVideoPlayer from "@/features/hotspot-detection/components/DetectionVideoPlayer.vue";
 import MetricsRow from "@/features/hotspot-detection/components/MetricsRow.vue";
@@ -59,48 +57,77 @@ import {
   runLogItems,
   videoCards,
 } from "@/features/hotspot-detection/mock/dashboardData";
-import type { MetricCard, RunLogItem } from "@/features/hotspot-detection/types/dashboard";
+import type {
+  MetricCard,
+  RunLogItem,
+} from "@/features/hotspot-detection/types/dashboard";
 
 defineOptions({
   name: "HotspotDetectionDashboard",
 });
 
-type DetectionStatus = "idle" | "imported" | "running" | "paused" | "completed";
+type DetectionStatus = "idle" | "imported" | "running" | "paused" | "completed" | "failed";
 
 interface ImportedVideo {
   name: string;
+  path: string;
   url: string;
   resolution: string;
   duration: string;
 }
 
-const videoInputRef = ref<HTMLInputElement | null>(null);
 const isRunLogModalOpen = ref(false);
+const selectedRunLog = ref<RunLogItem | null>(null);
 const detectionStatus = ref<DetectionStatus>("idle");
 const importedVideo = ref<ImportedVideo | null>(null);
+const inputVideoPath = ref("");
+const currentTaskId = ref("");
+const detectionProgress = ref(0);
+const detectedHotspotCount = ref(0);
+const resultVideoPath = ref("");
+const resultVideoUrl = ref("");
+const pollingTimer = ref<number | null>(null);
 const runLogs = ref<RunLogItem[]>([...runLogItems]);
-const detectedHotspotPositions = hotspotMarkers.map((marker) => marker.moduleCode);
+const detectedHotspotPositions = hotspotMarkers.map(
+  (marker) => marker.moduleCode,
+);
 
-const activeLog = computed(() => runLogs.value.find((logItem) => logItem.endTime === null));
-const disabledActionIds = computed(() => (detectionStatus.value === "running" ? [] : ["stop-detection"]));
+const activeLog = computed(() =>
+  runLogs.value.find((logItem) => logItem.endTime === null),
+);
+const disabledActionIds = computed(() => {
+  const disabledIds: string[] = [];
+
+  if (detectionStatus.value !== "running") {
+    disabledIds.push("stop-detection");
+  }
+
+  if (detectionStatus.value !== "completed") {
+    disabledIds.push("export-report");
+  }
+
+  return disabledIds;
+});
+const modalRunLogs = computed(() =>
+  selectedRunLog.value ? [selectedRunLog.value] : runLogs.value,
+);
 
 const dashboardMetrics = computed<MetricCard[]>(() =>
   metricCards.map((metric) => {
+    if (metric.id === "hotspot-count") {
+      return {
+        ...metric,
+        value: String(detectedHotspotCount.value).padStart(2, "0"),
+      };
+    }
+
     if (metric.id !== "hotspot-ratio") {
       return metric;
     }
 
-    const progressByStatus: Record<DetectionStatus, string> = {
-      idle: "32",
-      imported: "32",
-      running: "68",
-      paused: "68",
-      completed: "100",
-    };
-
     return {
       ...metric,
-      value: progressByStatus[detectionStatus.value],
+      value: String(detectionProgress.value),
     };
   }),
 );
@@ -120,12 +147,150 @@ const formatDateTime = (date: Date) => {
   return `${dateParts.join("-")} ${timeParts.join(":")}`;
 };
 
-const importVideo = () => {
-  videoInputRef.value?.click();
+const buildVideoPreviewUrl = (path: string) => {
+  return `http://127.0.0.1:8000/media/video?path=${encodeURIComponent(path)}`;
 };
 
-const startDetection = () => {
+const importVideo = async () => {
+  const selected = await open({
+    multiple: false,
+    filters: [
+      {
+        name: "Video",
+        extensions: ["mp4", "mov", "avi", "mkv"],
+      },
+    ],
+  });
+
+  if (!selected || Array.isArray(selected)) {
+    return;
+  }
+
+  inputVideoPath.value = selected;
+
+  currentTaskId.value = "";
+  detectionProgress.value = 0;
+  detectedHotspotCount.value = 0;
+  resultVideoPath.value = "";
+  resultVideoUrl.value = "";
+
+  importedVideo.value = {
+    name: selected.split("/").pop() || "已导入视频",
+    path: selected,
+    url: buildVideoPreviewUrl(selected),
+    resolution: "自动识别",
+    duration: "自动识别",
+  };
+
+  detectionStatus.value = "imported";
+  console.log("导入视频路径：", inputVideoPath.value);
+};
+
+const openRunLogModal = (record?: RunLogItem) => {
+  selectedRunLog.value = record ?? null;
+  isRunLogModalOpen.value = true;
+};
+
+const closeRunLogModal = () => {
+  selectedRunLog.value = null;
+  isRunLogModalOpen.value = false;
+};
+
+const stopPollingDetectionStatus = () => {
+  if (pollingTimer.value !== null) {
+    window.clearInterval(pollingTimer.value);
+    pollingTimer.value = null;
+  }
+};
+
+const pollDetectionStatus = (taskId: string) => {
+  stopPollingDetectionStatus();
+
+  pollingTimer.value = window.setInterval(async () => {
+    try {
+      const res = await fetch(`http://127.0.0.1:8000/detect/status/${taskId}`);
+      const data = await res.json();
+      console.log("检测状态返回：", data);
+
+      if (typeof data.progress === "number") {
+        detectionProgress.value = data.progress;
+      }
+
+      if (typeof data.hotspot_count === "number") {
+        detectedHotspotCount.value = data.hotspot_count;
+      }
+
+      if (data.result_video_path) {
+        resultVideoPath.value = data.result_video_path;
+      }
+
+      if (data.status === "completed") {
+        detectionStatus.value = "completed";
+        detectionProgress.value = 100;
+
+        if (resultVideoPath.value) {
+          resultVideoUrl.value = buildVideoPreviewUrl(resultVideoPath.value);
+        }
+
+        stopPollingDetectionStatus();
+        finishActiveDetectionRecord();
+        return;
+      }
+
+      if (data.status === "stopped") {
+        detectionStatus.value = "paused";
+        stopPollingDetectionStatus();
+        finishActiveDetectionRecord();
+        return;
+      }
+
+      if (data.status === "failed") {
+        detectionStatus.value = "failed";
+        stopPollingDetectionStatus();
+        console.error("检测失败：", data.error || data.result_video_path || data.message);
+      }
+    } catch (error) {
+      console.error("查询检测状态失败：", error);
+    }
+  }, 1000);
+};
+
+const startDetection = async () => {
   detectionStatus.value = "running";
+  detectionProgress.value = 0;
+  detectedHotspotCount.value = 0;
+  resultVideoPath.value = "";
+  resultVideoUrl.value = "";
+
+  if (!inputVideoPath.value) {
+    console.warn("请先导入视频");
+    detectionStatus.value = "idle";
+    return;
+  }
+
+  try {
+    const res = await fetch("http://127.0.0.1:8000/detect/start", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        input_path: inputVideoPath.value,
+      }),
+    });
+
+    const data = await res.json();
+    console.log("检测接口返回：", data);
+
+    if (data.task_id) {
+      currentTaskId.value = data.task_id;
+      pollDetectionStatus(data.task_id);
+    }
+  } catch (error) {
+    console.error("检测接口调用失败：", error);
+    detectionStatus.value = "idle";
+    return;
+  }
 
   if (activeLog.value) {
     return;
@@ -157,40 +322,90 @@ const finishActiveDetectionRecord = () => {
   runningLog.abnormalCount = detectedHotspotPositions.length;
 };
 
-const stopDetection = () => {
+const stopDetection = async () => {
   if (detectionStatus.value !== "running") {
     return;
   }
 
-  detectionStatus.value = "paused";
-  finishActiveDetectionRecord();
+  if (!currentTaskId.value) {
+    console.warn("没有正在运行的检测任务ID，无法停止后端检测");
+    detectionStatus.value = "paused";
+    stopPollingDetectionStatus();
+    finishActiveDetectionRecord();
+    return;
+  }
+
+  try {
+    const res = await fetch(`http://127.0.0.1:8000/detect/stop/${currentTaskId.value}`, {
+      method: "POST",
+    });
+
+    const data = await res.json();
+    console.log("停止检测接口返回：", data);
+
+    detectionStatus.value = "paused";
+  } catch (error) {
+    console.error("停止检测接口调用失败：", error);
+  }
+};
+
+const exportLatestReport = async () => {
+  try {
+    const latestReportResponse = await fetch("http://127.0.0.1:8000/report/latest");
+
+    if (!latestReportResponse.ok) {
+      console.error("导出报告失败：", latestReportResponse.status, latestReportResponse.statusText);
+      return;
+    }
+
+    const contentDisposition = latestReportResponse.headers.get("Content-Disposition") ?? "";
+    const filenameMatch = contentDisposition.match(/filename\*=UTF-8''([^;]+)|filename="?([^";]+)"?/i);
+    const filename = decodeURIComponent(filenameMatch?.[1] ?? filenameMatch?.[2] ?? "热斑检测报告.docx");
+    const extension = filename.toLowerCase().endsWith(".doc") ? "doc" : "docx";
+
+    const savePath = await save({
+      defaultPath: filename,
+      filters: [
+        {
+          name: "Word Report",
+          extensions: [extension],
+        },
+      ],
+    });
+
+    if (!savePath) {
+      console.log("用户取消导出报告");
+      return;
+    }
+
+    const exportResponse = await fetch("http://127.0.0.1:8000/report/export", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        save_path: savePath,
+      }),
+    });
+
+    const exportResult = await exportResponse.json();
+
+    if (!exportResponse.ok || !exportResult.success) {
+      console.error("保存报告失败：", exportResult);
+      return;
+    }
+
+    console.log("报告已导出到：", exportResult.save_path);
+  } catch (error) {
+    console.error("导出报告接口调用失败：", error);
+  }
 };
 
 const completeDetection = () => {
   detectionStatus.value = "completed";
+  detectionProgress.value = 100;
+  stopPollingDetectionStatus();
   finishActiveDetectionRecord();
-};
-
-const handleVideoFileChange = (event: Event) => {
-  const inputElement = event.target as HTMLInputElement;
-  const file = inputElement.files?.[0];
-
-  if (!file) {
-    return;
-  }
-
-  if (importedVideo.value) {
-    URL.revokeObjectURL(importedVideo.value.url);
-  }
-
-  importedVideo.value = {
-    name: file.name,
-    url: URL.createObjectURL(file),
-    resolution: "自动识别",
-    duration: "自动识别",
-  };
-  detectionStatus.value = "imported";
-  inputElement.value = "";
 };
 
 const handleToolbarAction = (actionId: string) => {
@@ -205,19 +420,25 @@ const handleToolbarAction = (actionId: string) => {
   }
 
   if (actionId === "stop-detection") {
-    stopDetection();
+    void stopDetection();
     return;
   }
 
   if (actionId === "export-report") {
-    completeDetection();
+    if (detectionStatus.value !== "completed") {
+      console.warn("检测尚未完成，不能导出报告");
+      return;
+    }
+
+    void exportLatestReport();
+    return;
   }
 };
 
 onBeforeUnmount(() => {
-  if (importedVideo.value) {
-    URL.revokeObjectURL(importedVideo.value.url);
-  }
+  stopPollingDetectionStatus();
+  importedVideo.value = null;
+  resultVideoUrl.value = "";
 });
 </script>
 
@@ -231,14 +452,6 @@ onBeforeUnmount(() => {
   grid-template-rows: minmax(0, 1fr) 168px;
   gap: 16px;
   overflow: hidden;
-}
-
-.video-file-input {
-  position: fixed;
-  width: 1px;
-  height: 1px;
-  opacity: 0;
-  pointer-events: none;
 }
 
 .inspection-board {

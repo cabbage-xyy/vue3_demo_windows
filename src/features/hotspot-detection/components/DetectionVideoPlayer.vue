@@ -6,11 +6,16 @@
       <div class="media-frame">
         <video
           v-if="mediaUrl"
+          ref="videoRef"
           class="video-media"
           :src="mediaUrl"
           muted
           playsinline
           preload="metadata"
+          @loadedmetadata="handleLoadedMetadata"
+          @timeupdate="handleTimeUpdate"
+          @ended="handleVideoEnded"
+          @click="togglePlay"
         ></video>
         <img v-else class="video-media" :src="video.imageUrl" :alt="video.title" />
 
@@ -19,14 +24,22 @@
           <span class="hotspot-marker marker-secondary"></span>
         </div>
 
-        <button type="button" class="center-play" :aria-label="`播放${video.title}`">
+        <button
+          v-show="!isPlaying"
+          type="button"
+          class="center-play"
+          :aria-label="`播放${video.title}`"
+          @click.stop="togglePlay"
+        >
           <BaseIcon name="play" :size="34" :stroke-width="1.8" />
         </button>
       </div>
 
       <footer class="player-controls">
         <div class="timeline-row">
-          <BaseIcon name="pause" :size="17" :stroke-width="2.8" />
+          <button type="button" class="inline-play-button" :aria-label="`${isPlaying ? '暂停' : '播放'}${video.title}`" @click="togglePlay">
+            <BaseIcon :name="isPlaying ? 'pause' : 'play'" :size="17" :stroke-width="2.8" />
+          </button>
           <div
             class="timeline"
             role="progressbar"
@@ -34,24 +47,21 @@
             aria-valuemin="0"
             aria-valuemax="100"
             :aria-label="`${video.title}播放进度`"
+            @click="seekByTimeline"
           >
             <span class="timeline-track"></span>
             <span class="timeline-progress" :style="progressStyle"></span>
             <span class="timeline-knob" :style="knobStyle"></span>
           </div>
-          <span class="control-time">{{ video.duration }}</span>
+          <span class="control-time">{{ displayTime }}</span>
         </div>
-
-        <button type="button" class="fullscreen-button" :aria-label="`放大${video.title}`" :title="`放大${video.title}`">
-          <BaseIcon name="maximize" :size="18" :stroke-width="2.4" />
-        </button>
       </footer>
     </div>
   </article>
 </template>
 
 <script setup lang="ts">
-import { computed } from "vue";
+import { computed, ref, watch } from "vue";
 import BaseIcon from "@/components/base/BaseIcon.vue";
 import type { VideoCard } from "@/features/hotspot-detection/types/dashboard";
 
@@ -68,10 +78,99 @@ const props = withDefaults(defineProps<DetectionVideoPlayerProps>(), {
   mediaUrl: null,
 });
 
-const clampedProgress = computed(() => Math.max(0, Math.min(100, props.video.progress ?? 0)));
+const videoRef = ref<HTMLVideoElement | null>(null);
+const currentTime = ref(0);
+const duration = ref(0);
+const isPlaying = ref(false);
+
+const formatTime = (seconds: number) => {
+  if (!Number.isFinite(seconds) || seconds <= 0) {
+    return "0:00";
+  }
+
+  const totalSeconds = Math.floor(seconds);
+  const minutes = Math.floor(totalSeconds / 60);
+  const restSeconds = totalSeconds % 60;
+
+  return `${minutes}:${String(restSeconds).padStart(2, "0")}`;
+};
+
+const realVideoProgress = computed(() => {
+  if (!props.mediaUrl || duration.value <= 0) {
+    return props.video.progress ?? 0;
+  }
+
+  return (currentTime.value / duration.value) * 100;
+});
+
+const clampedProgress = computed(() => Math.max(0, Math.min(100, realVideoProgress.value)));
 const progressStyle = computed(() => ({ width: `${clampedProgress.value}%` }));
 const knobStyle = computed(() => ({ left: `${clampedProgress.value}%` }));
 const showResultOverlay = computed(() => props.video.id === "result-video");
+const displayTime = computed(() => {
+  if (!props.mediaUrl || duration.value <= 0) {
+    return props.video.duration;
+  }
+
+  return `${formatTime(currentTime.value)} / ${formatTime(duration.value)}`;
+});
+
+const handleLoadedMetadata = () => {
+  if (!videoRef.value) {
+    return;
+  }
+
+  duration.value = videoRef.value.duration;
+  currentTime.value = videoRef.value.currentTime;
+};
+
+const handleTimeUpdate = () => {
+  if (!videoRef.value) {
+    return;
+  }
+
+  currentTime.value = videoRef.value.currentTime;
+};
+
+const handleVideoEnded = () => {
+  isPlaying.value = false;
+  currentTime.value = duration.value;
+};
+
+const togglePlay = async () => {
+  if (!videoRef.value || !props.mediaUrl) {
+    return;
+  }
+
+  if (videoRef.value.paused) {
+    await videoRef.value.play();
+    isPlaying.value = true;
+  } else {
+    videoRef.value.pause();
+    isPlaying.value = false;
+  }
+};
+
+const seekByTimeline = (event: MouseEvent) => {
+  if (!videoRef.value || !props.mediaUrl || duration.value <= 0) {
+    return;
+  }
+
+  const target = event.currentTarget as HTMLElement;
+  const rect = target.getBoundingClientRect();
+  const ratio = Math.max(0, Math.min(1, (event.clientX - rect.left) / rect.width));
+  videoRef.value.currentTime = ratio * duration.value;
+  currentTime.value = videoRef.value.currentTime;
+};
+
+watch(
+  () => props.mediaUrl,
+  () => {
+    currentTime.value = 0;
+    duration.value = 0;
+    isPlaying.value = false;
+  },
+);
 </script>
 
 <style scoped>
@@ -124,6 +223,10 @@ const showResultOverlay = computed(() => props.video.id === "result-video");
   height: 100%;
   display: block;
   object-fit: cover;
+}
+
+video.video-media {
+  cursor: pointer;
 }
 
 .media-frame::after {
@@ -190,22 +293,31 @@ const showResultOverlay = computed(() => props.video.id === "result-video");
 
 .player-controls {
   min-width: 0;
-  padding: 0 10px 0 14px;
-  display: flex;
-  align-items: center;
-  gap: 10px;
-}
-
-.timeline-row,
-.control-buttons {
-  min-width: 0;
+  padding: 0 14px;
   display: flex;
   align-items: center;
 }
 
 .timeline-row {
+  min-width: 0;
+  display: flex;
+  align-items: center;
   flex: 1;
   gap: 10px;
+}
+
+.inline-play-button {
+  flex: 0 0 auto;
+  width: 18px;
+  height: 18px;
+  border: 0;
+  padding: 0;
+  background: transparent;
+  color: #d8e2f0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
 }
 
 .control-time {
@@ -220,6 +332,7 @@ const showResultOverlay = computed(() => props.video.id === "result-video");
   min-width: 0;
   height: 18px;
   flex: 1;
+  cursor: pointer;
 }
 
 .timeline-track,
@@ -252,32 +365,6 @@ const showResultOverlay = computed(() => props.video.id === "result-video");
   background: #ffffff;
   transform: translate(-50%, -50%);
   box-shadow: 0 2px 7px rgba(0, 0, 0, 0.25);
-}
-
-.fullscreen-button {
-  width: 28px;
-  height: 28px;
-  flex: 0 0 auto;
-  border: 1px solid rgba(219, 230, 246, 0.2);
-  border-radius: 7px;
-  background: rgba(255, 255, 255, 0.04);
-  color: #d8e2f0;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  cursor: pointer;
-  transition:
-    background 0.18s ease,
-    border-color 0.18s ease,
-    color 0.18s ease,
-    transform 0.18s ease;
-}
-
-.fullscreen-button:hover {
-  border-color: rgba(74, 163, 255, 0.72);
-  background: rgba(31, 124, 255, 0.16);
-  color: #ffffff;
-  transform: translateY(-1px);
 }
 
 @media (max-width: 980px) {
