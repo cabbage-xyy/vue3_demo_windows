@@ -20,6 +20,7 @@ export type IconName =
   | "play"
   | "pause"
   | "plus"
+  | "eye"
   | "edit"
   | "trash"
   | "search"

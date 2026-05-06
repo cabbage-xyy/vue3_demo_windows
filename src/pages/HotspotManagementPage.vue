@@ -12,70 +12,67 @@
         <div class="toolbar">
           <label class="search-box">
             <BaseIcon name="search" :size="16" />
-            <input v-model.trim="searchKeyword" type="search" placeholder="搜索检测编号 / 电站 / 屋顶 / 负责人" />
+            <input v-model.trim="searchKeyword" type="search" placeholder="搜索检测编号 / 公司 / 电站 / 屋顶 / 缺陷类型" />
           </label>
 
           <div class="toolbar-actions">
-            <select v-model="severityFilter" class="filter-select" aria-label="风险等级筛选">
-              <option value="all">全部等级</option>
-              <option value="高风险">高风险</option>
-              <option value="中风险">中风险</option>
-              <option value="低风险">低风险</option>
-            </select>
 
             <select v-model="statusFilter" class="filter-select" aria-label="处理状态筛选">
               <option value="all">全部状态</option>
-              <option value="待复核">待复核</option>
+              <option value="未处理">未处理</option>
               <option value="处理中">处理中</option>
-              <option value="已闭环">已闭环</option>
+              <option value="已处理">已处理</option>
             </select>
 
-            <button type="button" class="primary-command" @click="openCreateForm">
-              <BaseIcon name="plus" :size="16" />
-              新增记录
-            </button>
           </div>
         </div>
 
-        <div class="hotspot-table" role="table" aria-label="热斑检测记录列表">
-          <div class="table-row table-head" role="row">
-            <span role="columnheader">检测编号</span>
-            <span role="columnheader">所属电站</span>
-            <span role="columnheader">屋顶区域</span>
-            <span role="columnheader">检测时间</span>
-            <span role="columnheader">热斑数</span>
-            <span role="columnheader">最高风险</span>
-            <span role="columnheader">处理状态</span>
-            <span role="columnheader">负责人</span>
-            <span role="columnheader">操作</span>
-          </div>
+        <div class="hotspot-table-scroll">
+          <table class="hotspot-table" aria-label="热斑检测记录列表">
+            <thead>
+              <tr class="table-row table-head">
+                <th scope="col">检测编号</th>
+                <th scope="col">公司名称</th>
+                <th scope="col">电站名称</th>
+                <th scope="col">屋顶名称</th>
+                <th scope="col">检测时间</th>
+                <th scope="col">异常组件数</th>
+                <th scope="col">缺陷类型</th>
+                <th scope="col">处理状态</th>
+                <th scope="col">报告状态</th>
+                <th scope="col">操作</th>
+              </tr>
+            </thead>
 
-          <div class="table-body">
-            <div v-for="record in filteredRecords" :key="record.id" class="table-row" role="row">
-              <div class="record-code" role="cell">
+            <tbody class="table-body">
+              <tr v-for="record in filteredRecords" :key="record.id" class="table-row">
+                <td class="record-code">
                 <button type="button" class="record-link" @click="openRecordDetail(record)">
-                  {{ record.code }}
+                  {{ record.detectCode }}
                 </button>
-              </div>
-              <span role="cell">{{ record.station }}</span>
-              <span role="cell">{{ record.roof }}</span>
-              <span role="cell">{{ record.inspectedAt }}</span>
-              <strong role="cell" class="hotspot-count">{{ record.hotspots.length }}</strong>
-              <span role="cell" class="severity-pill" :class="record.maxSeverity">{{ record.maxSeverity }}</span>
-              <span role="cell" class="status-pill" :class="record.status">{{ record.status }}</span>
-              <span role="cell">{{ record.owner }}</span>
-              <div class="row-actions" role="cell">
-                <button type="button" aria-label="编辑检测记录" @click="openEditForm(record)">
-                  <BaseIcon name="edit" :size="18" :stroke-width="2.6" />
-                </button>
-                <button type="button" aria-label="删除检测记录" @click="deleteRecord(record.id)">
-                  <BaseIcon name="trash" :size="17" :stroke-width="2.5" />
-                </button>
-              </div>
-            </div>
-          </div>
+                </td>
+                <td class="cell-text" :title="record.companyName">{{ record.companyName }}</td>
+                <td class="cell-text" :title="record.stationName">{{ record.stationName }}</td>
+                <td class="cell-text" :title="record.roofName">{{ record.roofName }}</td>
+                <td>{{ record.detectTime }}</td>
+                <td class="hotspot-count">{{ record.hotspotComponentCount }}</td>
+                <td class="cell-text" :title="record.defectSummary">{{ record.defectSummary }}</td>
+                <td><span class="status-pill" :class="record.processStatus">{{ record.processStatus }}</span></td>
+                <td><span class="report-pill" :class="record.reportStatus">{{ record.reportStatus }}</span></td>
+                <td class="row-actions">
+                  <button type="button" aria-label="查看检测记录" @click="openRecordDetail(record)">
+                    <BaseIcon name="eye" :size="18" :stroke-width="2.6" />
+                  </button>
+                  <button type="button" aria-label="删除检测记录" @click="deleteRecord(record.id)">
+                    <BaseIcon name="trash" :size="17" :stroke-width="2.5" />
+                  </button>
+                </td>
+              </tr>
+            </tbody>
+          </table>
 
-          <p v-if="filteredRecords.length === 0" class="empty-state">暂无匹配检测记录</p>
+          <p v-if="isLoadingRecords" class="empty-state">正在加载热斑检测记录...</p>
+          <p v-else-if="filteredRecords.length === 0" class="empty-state">暂无匹配检测记录</p>
         </div>
       </div>
     </section>
@@ -84,8 +81,8 @@
       <aside class="form-panel" aria-label="检测记录表单">
         <header>
           <div>
-            <p class="eyebrow">{{ formMode === "create" ? "Create" : "Edit" }}</p>
-            <h2>{{ formMode === "create" ? "新增检测记录" : "编辑检测记录" }}</h2>
+            <p class="eyebrow">Edit</p>
+            <h2>编辑热斑检测记录</h2>
           </div>
           <button type="button" class="ghost-icon" aria-label="关闭表单" @click="closeForm">
             <BaseIcon name="x" :size="16" />
@@ -95,48 +92,53 @@
         <form class="hotspot-form" @submit.prevent="saveRecord">
           <label>
             检测编号
-            <input v-model.trim="recordForm.code" required type="text" />
+            <input v-model.trim="recordForm.detectCode" disabled type="text" />
           </label>
           <label>
-            所属电站
-            <input v-model.trim="recordForm.station" required type="text" />
+            公司名称
+            <input v-model.trim="recordForm.companyName" disabled type="text" />
           </label>
           <label>
-            屋顶区域
-            <input v-model.trim="recordForm.roof" required type="text" />
+            电站名称
+            <input v-model.trim="recordForm.stationName" disabled type="text" />
+          </label>
+          <label>
+            屋顶名称
+            <input v-model.trim="recordForm.roofName" disabled type="text" />
           </label>
           <label>
             检测时间
-            <input v-model.trim="recordForm.inspectedAt" required type="text" />
+            <input v-model.trim="recordForm.detectTime" disabled type="text" />
           </label>
           <label>
-            最高风险
-            <select v-model="recordForm.maxSeverity">
-              <option value="高风险">高风险</option>
-              <option value="中风险">中风险</option>
-              <option value="低风险">低风险</option>
-            </select>
+            异常组件数
+            <input v-model.number="recordForm.hotspotComponentCount" min="0" type="number" />
+          </label>
+          <label>
+            缺陷类型
+            <input v-model.trim="recordForm.defectSummary" required type="text" />
           </label>
           <label>
             处理状态
-            <select v-model="recordForm.status">
-              <option value="待复核">待复核</option>
+            <select v-model="recordForm.processStatus">
+              <option value="未处理">未处理</option>
               <option value="处理中">处理中</option>
-              <option value="已闭环">已闭环</option>
+              <option value="已处理">已处理</option>
             </select>
           </label>
           <label>
-            负责人
-            <input v-model.trim="recordForm.owner" required type="text" />
+            报告状态
+            <select v-model="recordForm.reportStatus">
+              <option value="未生成">未生成</option>
+              <option value="已生成">已生成</option>
+            </select>
           </label>
           <label>
-            热斑点位概述
-            <input v-model.trim="recordForm.hotspotSummary" required type="text" />
+            报告路径
+            <input v-model.trim="recordForm.reportPath" type="text" />
           </label>
 
-          <button type="submit" class="save-button">
-            {{ formMode === "create" ? "创建记录" : "保存修改" }}
-          </button>
+          <button type="submit" class="save-button">保存修改</button>
         </form>
       </aside>
     </div>
@@ -145,9 +147,7 @@
       <aside class="detail-panel" aria-label="检测记录详情">
         <header>
           <div>
-            <p class="eyebrow">Inspection detail</p>
-            <h2>{{ selectedRecord.code }}</h2>
-            <span class="detail-code">{{ selectedRecord.station }} · {{ selectedRecord.roof }}</span>
+            <h2>{{ selectedRecord.detectCode }}</h2>
           </div>
           <button type="button" class="ghost-icon" aria-label="关闭检测记录详情" @click="closeRecordDetail">
             <BaseIcon name="x" :size="16" />
@@ -156,16 +156,16 @@
 
         <section class="detail-hero">
           <div>
-            <span>最高风险</span>
-            <strong class="severity-pill" :class="selectedRecord.maxSeverity">{{ selectedRecord.maxSeverity }}</strong>
+            <span>异常组件数</span>
+            <strong>{{ selectedRecord.hotspotComponentCount }}</strong>
           </div>
           <div>
             <span>处理状态</span>
-            <strong class="status-pill" :class="selectedRecord.status">{{ selectedRecord.status }}</strong>
+            <strong class="status-pill" :class="selectedRecord.processStatus">{{ selectedRecord.processStatus }}</strong>
           </div>
           <div>
-            <span>热斑数量</span>
-            <strong>{{ selectedRecord.hotspots.length }}</strong>
+            <span>报告状态</span>
+            <strong class="report-pill" :class="selectedRecord.reportStatus">{{ selectedRecord.reportStatus }}</strong>
           </div>
         </section>
 
@@ -174,55 +174,60 @@
           <dl class="detail-grid">
             <div>
               <dt>检测编号</dt>
-              <dd>{{ selectedRecord.code }}</dd>
+              <dd>{{ selectedRecord.detectCode }}</dd>
             </div>
             <div>
-              <dt>所属电站</dt>
-              <dd>{{ selectedRecord.station }}</dd>
+              <dt>公司名称</dt>
+              <dd>{{ selectedRecord.companyName }}</dd>
             </div>
             <div>
-              <dt>屋顶区域</dt>
-              <dd>{{ selectedRecord.roof }}</dd>
+              <dt>电站名称</dt>
+              <dd>{{ selectedRecord.stationName }}</dd>
+            </div>
+            <div>
+              <dt>屋顶名称</dt>
+              <dd>{{ selectedRecord.roofName }}</dd>
             </div>
             <div>
               <dt>检测时间</dt>
-              <dd>{{ selectedRecord.inspectedAt }}</dd>
+              <dd>{{ selectedRecord.detectTime }}</dd>
             </div>
             <div>
-              <dt>负责人</dt>
-              <dd>{{ selectedRecord.owner }}</dd>
+              <dt>检测耗时</dt>
+              <dd>{{ formatDuration(recordDurationValue(selectedRecord)) }}</dd>
             </div>
             <div>
-              <dt>处置建议</dt>
-              <dd>{{ selectedRecord.remediation }}</dd>
+              <dt>检测报告</dt>
+              <dd>
+                <button
+                  type="button"
+                  class="report-view-button"
+                  :disabled="!selectedRecord.reportPath"
+                  @click="openReportFile(selectedRecord)"
+                >
+                  查看报告
+                </button>
+              </dd>
             </div>
           </dl>
         </section>
 
         <section class="detail-section">
-          <h3>热斑明细</h3>
-          <div class="hotspot-detail-list">
-            <article v-for="hotspot in selectedRecord.hotspots" :key="hotspot.id" class="hotspot-detail-card">
-              <div>
-                <strong>{{ hotspot.module }}</strong>
-                <span class="severity-pill" :class="hotspot.severity">{{ hotspot.severity }}</span>
-              </div>
-              <dl>
-                <div>
-                  <dt>温差</dt>
-                  <dd>{{ hotspot.temperatureDelta }}</dd>
-                </div>
-                <div>
-                  <dt>置信度</dt>
-                  <dd>{{ hotspot.confidence }}</dd>
-                </div>
-                <div>
-                  <dt>定位帧</dt>
-                  <dd>{{ hotspot.frame }}</dd>
-                </div>
-              </dl>
-            </article>
-          </div>
+          <h3>检测结果</h3>
+          <dl class="detail-grid">
+            <div>
+              <dt>异常组件数</dt>
+              <dd>{{ selectedRecord.hotspotComponentCount }}</dd>
+            </div>
+            <div>
+              <dt>缺陷类型</dt>
+              <dd>{{ selectedRecord.defectSummary }}</dd>
+            </div>
+            <div>
+              <dt>处理状态</dt>
+              <dd>{{ selectedRecord.processStatus }}</dd>
+            </div>
+          </dl>
         </section>
       </aside>
     </div>
@@ -230,244 +235,233 @@
 </template>
 
 <script setup lang="ts">
-import { computed, reactive, ref } from "vue";
+import { invoke } from "@tauri-apps/api/core";
+import { computed, onMounted, reactive, ref } from "vue";
 import BaseIcon from "@/components/base/BaseIcon.vue";
 
 defineOptions({
   name: "HotspotManagementPage",
 });
+type HotspotStatus = "未处理" | "处理中" | "已处理";
+type ReportStatus = "未生成" | "已生成";
 
-type HotspotSeverity = "高风险" | "中风险" | "低风险";
-type HotspotStatus = "待复核" | "处理中" | "已闭环";
+interface HotspotManagementApiRecord {
+  id?: number | string | null;
+  detectCode?: string | null;
+  companyId?: number | string | null;
+  companyName?: string | null;
+  stationName?: string | null;
+  roofId?: number | string | null;
+  roofName?: string | null;
+  videoPath?: string | null;
+  reportPath?: string | null;
+  detectTime?: string | null;
+  detectDuration?: number | string | null;
+  hotspotComponentCount?: number | string | null;
+  defectSummary?: string | null;
+  processStatus?: string | null;
+  reportStatus?: string | null;
+  createdAt?: string | null;
+  updatedAt?: string | null;
+}
 
 interface HotspotRecord {
   id: number;
-  module: string;
-  temperatureDelta: string;
-  severity: HotspotSeverity;
-  confidence: string;
-  frame: string;
+  detectCode: string;
+  companyId?: string;
+  companyName: string;
+  stationName: string;
+  roofId?: string;
+  roofName: string;
+  videoPath: string;
+  reportPath: string;
+  detectTime: string;
+  detectDuration: string;
+  hotspotComponentCount: number;
+  defectSummary: string;
+  processStatus: HotspotStatus;
+  reportStatus: ReportStatus;
+  createdAt: string;
+  updatedAt: string;
 }
 
-interface InspectionRecord {
-  id: number;
-  code: string;
-  station: string;
-  roof: string;
-  inspectedAt: string;
-  maxSeverity: HotspotSeverity;
-  status: HotspotStatus;
-  owner: string;
-  hotspots: HotspotRecord[];
-  hotspotSummary: string;
-  remediation: string;
-}
+type HotspotForm = Omit<HotspotRecord, "id" | "companyId" | "roofId" | "createdAt" | "updatedAt">;
 
-type InspectionForm = Omit<InspectionRecord, "id" | "hotspots" | "remediation">;
-type FormMode = "create" | "edit";
-
-const createEmptyForm = (): InspectionForm => ({
-  code: "",
-  station: "",
-  roof: "",
-  inspectedAt: "",
-  maxSeverity: "中风险",
-  status: "待复核",
-  owner: "",
-  hotspotSummary: "",
+const createEmptyForm = (): HotspotForm => ({
+  detectCode: "",
+  companyName: "",
+  stationName: "",
+  roofName: "",
+  videoPath: "",
+  reportPath: "",
+  detectTime: "",
+  detectDuration: "0",
+  hotspotComponentCount: 0,
+  defectSummary: "热斑",
+  processStatus: "未处理",
+  reportStatus: "已生成",
 });
 
-const inspectionRecords = ref<InspectionRecord[]>([
-  {
-    id: 1,
-    code: "INSP-JX-20260429-001",
-    station: "嘉兴一号屋顶光伏电站",
-    roof: "屋顶 A 区",
-    inspectedAt: "2026-04-29 09:12",
-    maxSeverity: "高风险",
-    status: "处理中",
-    owner: "刘海鑫",
-    hotspotSummary: "A-03-18、A-03-24 共 2 处热斑",
-    hotspots: [
-      { id: 101, module: "A-03-18", temperatureDelta: "18.6°C", severity: "高风险", confidence: "94%", frame: "00:37" },
-      { id: 102, module: "A-03-24", temperatureDelta: "15.2°C", severity: "中风险", confidence: "89%", frame: "00:41" },
-    ],
-    remediation: "安排无人机复核并同步工单，优先检查旁路二极管与接线端子。",
-  },
-  {
-    id: 2,
-    code: "INSP-XJ-20260428-025",
-    station: "巴州戈壁集中式电站",
-    roof: "阵列 B-12",
-    inspectedAt: "2026-04-28 16:40",
-    maxSeverity: "中风险",
-    status: "待复核",
-    owner: "陈卓",
-    hotspotSummary: "B-12-07 共 1 处热斑",
-    hotspots: [
-      { id: 201, module: "B-12-07", temperatureDelta: "11.4°C", severity: "中风险", confidence: "86%", frame: "01:12" },
-    ],
-    remediation: "纳入下一轮巡检计划，复核热像帧与组件遮挡情况。",
-  },
-  {
-    id: 3,
-    code: "INSP-SN-20260426-013",
-    station: "苏南工业园分布式电站",
-    roof: "研发楼 R 区",
-    inspectedAt: "2026-04-26 11:20",
-    maxSeverity: "低风险",
-    status: "已闭环",
-    owner: "王琪",
-    hotspotSummary: "R-02-31、R-02-36 共 2 处热斑",
-    hotspots: [
-      { id: 301, module: "R-02-31", temperatureDelta: "7.8°C", severity: "低风险", confidence: "81%", frame: "00:28" },
-      { id: 302, module: "R-02-36", temperatureDelta: "6.9°C", severity: "低风险", confidence: "78%", frame: "00:31" },
-    ],
-    remediation: "已完成清洗和复测，温差恢复到观察阈值以内。",
-  },
-  {
-    id: 4,
-    code: "INSP-HY-20260425-006",
-    station: "海盐组件测试电站",
-    roof: "测试棚 T 区",
-    inspectedAt: "2026-04-25 14:06",
-    maxSeverity: "高风险",
-    status: "待复核",
-    owner: "赵宁",
-    hotspotSummary: "T-08-14、T-08-15、T-09-02 共 3 处热斑",
-    hotspots: [
-      { id: 401, module: "T-08-14", temperatureDelta: "21.2°C", severity: "高风险", confidence: "96%", frame: "02:04" },
-      { id: 402, module: "T-08-15", temperatureDelta: "17.5°C", severity: "高风险", confidence: "91%", frame: "02:06" },
-      { id: 403, module: "T-09-02", temperatureDelta: "10.1°C", severity: "中风险", confidence: "84%", frame: "02:18" },
-    ],
-    remediation: "建议立即停用对应支路并进行现场排查。",
-  },
-  {
-    id: 5,
-    code: "INSP-NB-20260424-018",
-    station: "宁波湾区屋顶电站",
-    roof: "仓储楼 C 区",
-    inspectedAt: "2026-04-24 10:18",
-    maxSeverity: "中风险",
-    status: "处理中",
-    owner: "周航",
-    hotspotSummary: "C-05-22 共 1 处热斑",
-    hotspots: [
-      { id: 501, module: "C-05-22", temperatureDelta: "13.5°C", severity: "中风险", confidence: "88%", frame: "01:46" },
-    ],
-    remediation: "已派发检修工单，等待复测结果回填。",
-  },
-  {
-    id: 6,
-    code: "INSP-CZ-20260422-032",
-    station: "常州高新区分布式电站",
-    roof: "厂房 D 区",
-    inspectedAt: "2026-04-22 15:32",
-    maxSeverity: "低风险",
-    status: "已闭环",
-    owner: "林澈",
-    hotspotSummary: "D-09-03 共 1 处热斑",
-    hotspots: [
-      { id: 601, module: "D-09-03", temperatureDelta: "6.4°C", severity: "低风险", confidence: "76%", frame: "00:54" },
-    ],
-    remediation: "复核为短时阴影影响，已归档。",
-  },
-  {
-    id: 7,
-    code: "INSP-SX-20260421-011",
-    station: "绍兴纺织园光伏电站",
-    roof: "织造车间 A 区",
-    inspectedAt: "2026-04-21 09:46",
-    maxSeverity: "高风险",
-    status: "处理中",
-    owner: "许诺",
-    hotspotSummary: "A-11-09、A-11-12 共 2 处热斑",
-    hotspots: [
-      { id: 701, module: "A-11-09", temperatureDelta: "16.9°C", severity: "高风险", confidence: "92%", frame: "01:09" },
-      { id: 702, module: "A-11-12", temperatureDelta: "12.8°C", severity: "中风险", confidence: "85%", frame: "01:15" },
-    ],
-    remediation: "建议更换异常组件并复核同串组件温升。",
-  },
-  {
-    id: 8,
-    code: "INSP-HZ-20260419-029",
-    station: "湖州物流园储能光伏站",
-    roof: "物流仓 E 区",
-    inspectedAt: "2026-04-19 13:58",
-    maxSeverity: "中风险",
-    status: "待复核",
-    owner: "唐亦",
-    hotspotSummary: "E-04-27、E-05-02 共 2 处热斑",
-    hotspots: [
-      { id: 801, module: "E-04-27", temperatureDelta: "9.2°C", severity: "中风险", confidence: "83%", frame: "00:47" },
-      { id: 802, module: "E-05-02", temperatureDelta: "8.6°C", severity: "低风险", confidence: "79%", frame: "00:52" },
-    ],
-    remediation: "等待下一次无人机巡检自动比对。",
-  },
-]);
-
+const inspectionRecords = ref<HotspotRecord[]>([]);
+const isLoadingRecords = ref(false);
 const searchKeyword = ref("");
-const severityFilter = ref<HotspotSeverity | "all">("all");
 const statusFilter = ref<HotspotStatus | "all">("all");
-const formMode = ref<FormMode>("create");
 const editingRecordId = ref<number | null>(null);
 const isFormOpen = ref(false);
-const selectedRecord = ref<InspectionRecord | null>(null);
-const recordForm = reactive<InspectionForm>(createEmptyForm());
+const selectedRecord = ref<HotspotRecord | null>(null);
+const recordForm = reactive<HotspotForm>(createEmptyForm());
+
+const normalizeProcessStatus = (status: string | null | undefined): HotspotStatus => {
+  if (status === "未处理" || status === "处理中" || status === "已处理") {
+    return status;
+  }
+
+  return "未处理";
+};
+
+const normalizeReportStatus = (status: string | null | undefined): ReportStatus => {
+  if (status === "已生成" || status === "未生成") {
+    return status;
+  }
+
+  return "未生成";
+};
+
+const formatNullableValue = (value: unknown) => {
+  if (value === null || value === undefined || value === "") {
+    return "";
+  }
+
+  return String(value);
+};
+
+const normalizeHotspotRecord = (record: HotspotManagementApiRecord, index: number): HotspotRecord => {
+  const idNumber = Number(record.id);
+  const id = Number.isFinite(idNumber) ? idNumber : Date.now() + index;
+  const countNumber = Number(record.hotspotComponentCount);
+
+  return {
+    id,
+    detectCode: record.detectCode || `HS-${id}`,
+    companyId: formatNullableValue(record.companyId),
+    companyName: record.companyName || "未填写",
+    stationName: record.stationName || "未填写",
+    roofId: formatNullableValue(record.roofId),
+    roofName: record.roofName || "未填写",
+    videoPath: record.videoPath || "",
+    reportPath: record.reportPath || "",
+    detectTime: record.detectTime || "未填写",
+    detectDuration: formatNullableValue(record.detectDuration || 0),
+    hotspotComponentCount: Number.isFinite(countNumber) ? countNumber : 0,
+    defectSummary: record.defectSummary || "热斑",
+    processStatus: normalizeProcessStatus(record.processStatus),
+    reportStatus: normalizeReportStatus(record.reportStatus),
+    createdAt: record.createdAt || "",
+    updatedAt: record.updatedAt || "",
+  };
+};
+
+const refreshRecordsFromApiRecords = (apiRecords: HotspotManagementApiRecord[]) => {
+  inspectionRecords.value = apiRecords.map((record, index) => normalizeHotspotRecord(record, index));
+};
+
+const fetchHotspotRecords = async () => {
+  isLoadingRecords.value = true;
+
+  try {
+    const response = await fetch("http://127.0.0.1:8000/hotspot-management/records");
+
+    if (!response.ok) {
+      console.error("获取热斑检测记录失败：", response.status, response.statusText);
+      return;
+    }
+
+    const result = await response.json();
+    const apiRecords = Array.isArray(result.data) ? result.data : [];
+    refreshRecordsFromApiRecords(apiRecords);
+  } catch (error) {
+    console.error("获取热斑检测记录接口调用失败：", error);
+  } finally {
+    isLoadingRecords.value = false;
+  }
+};
 
 const filteredRecords = computed(() => {
   const keyword = searchKeyword.value.toLowerCase();
 
   return inspectionRecords.value.filter((record) => {
-    const matchesKeyword = [record.code, record.station, record.roof, record.owner, record.hotspotSummary]
+    const matchesKeyword = [
+      record.detectCode,
+      record.companyName,
+      record.stationName,
+      record.roofName,
+      record.defectSummary,
+      record.processStatus,
+      record.reportStatus,
+    ]
       .join(" ")
       .toLowerCase()
       .includes(keyword);
-    const matchesSeverity = severityFilter.value === "all" || record.maxSeverity === severityFilter.value;
-    const matchesStatus = statusFilter.value === "all" || record.status === statusFilter.value;
+    const matchesStatus = statusFilter.value === "all" || record.processStatus === statusFilter.value;
 
-    return matchesKeyword && matchesSeverity && matchesStatus;
+    return matchesKeyword && matchesStatus;
   });
 });
 
-const summaryItems = computed(() => [
-  { label: "检测记录", value: inspectionRecords.value.length.toString().padStart(2, "0") },
-  { label: "热斑总数", value: inspectionRecords.value.reduce((total, record) => total + record.hotspots.length, 0) },
-  { label: "高风险记录", value: inspectionRecords.value.filter((record) => record.maxSeverity === "高风险").length },
-  { label: "闭环率", value: `${Math.round((inspectionRecords.value.filter((record) => record.status === "已闭环").length / inspectionRecords.value.length) * 100)}%` },
-]);
+const summaryItems = computed(() => {
+  const total = inspectionRecords.value.length;
+  const handled = inspectionRecords.value.filter((record) => record.processStatus === "已处理").length;
 
-const assignForm = (record: InspectionForm) => {
-  recordForm.code = record.code;
-  recordForm.station = record.station;
-  recordForm.roof = record.roof;
-  recordForm.inspectedAt = record.inspectedAt;
-  recordForm.maxSeverity = record.maxSeverity;
-  recordForm.status = record.status;
-  recordForm.owner = record.owner;
-  recordForm.hotspotSummary = record.hotspotSummary;
+  return [
+    { label: "检测记录", value: total.toString().padStart(2, "0") },
+    { label: "异常组件总数", value: inspectionRecords.value.reduce((sum, record) => sum + record.hotspotComponentCount, 0) },
+    { label: "未处理记录", value: inspectionRecords.value.filter((record) => record.processStatus === "未处理").length },
+    { label: "已生成报告", value: inspectionRecords.value.filter((record) => record.reportStatus === "已生成").length || `${total === 0 ? 0 : Math.round((handled / total) * 100)}%` },
+  ];
+});
+
+const assignForm = (record: HotspotRecord | HotspotForm) => {
+  recordForm.detectCode = record.detectCode;
+  recordForm.companyName = record.companyName;
+  recordForm.stationName = record.stationName;
+  recordForm.roofName = record.roofName;
+  recordForm.videoPath = record.videoPath;
+  recordForm.reportPath = record.reportPath;
+  recordForm.detectTime = record.detectTime;
+  recordForm.detectDuration = record.detectDuration;
+  recordForm.hotspotComponentCount = record.hotspotComponentCount;
+  recordForm.defectSummary = record.defectSummary;
+  recordForm.processStatus = record.processStatus;
+  recordForm.reportStatus = record.reportStatus;
 };
 
 const resetForm = () => {
-  formMode.value = "create";
   editingRecordId.value = null;
   assignForm(createEmptyForm());
 };
 
-const openCreateForm = () => {
-  resetForm();
-  isFormOpen.value = true;
-};
-
-const openEditForm = (record: InspectionRecord) => {
-  formMode.value = "edit";
+const openEditForm = (record: HotspotRecord) => {
   editingRecordId.value = record.id;
   assignForm(record);
   isFormOpen.value = true;
 };
 
-const openRecordDetail = (record: InspectionRecord) => {
+const openRecordDetail = (record: HotspotRecord) => {
   selectedRecord.value = record;
+};
+
+const openReportFile = async (record: HotspotRecord) => {
+  if (!record.reportPath) {
+    window.alert("当前记录暂无检测报告");
+    return;
+  }
+
+  try {
+    await invoke("open_report_file", { path: record.reportPath });
+  } catch (error) {
+    console.error("打开检测报告失败：", error);
+    window.alert("打开检测报告失败，请确认报告文件仍存在");
+  }
 };
 
 const closeRecordDetail = () => {
@@ -479,55 +473,92 @@ const closeForm = () => {
   resetForm();
 };
 
-const saveRecord = () => {
-  if (formMode.value === "edit" && editingRecordId.value !== null) {
-    const recordIndex = inspectionRecords.value.findIndex((record) => record.id === editingRecordId.value);
-
-    if (recordIndex >= 0) {
-      const currentRecord = inspectionRecords.value[recordIndex];
-
-      if (!currentRecord) {
-        return;
-      }
-
-      inspectionRecords.value[recordIndex] = {
-        ...currentRecord,
-        ...recordForm,
-        id: editingRecordId.value,
-      };
-    }
-  } else {
-    inspectionRecords.value.unshift({
-      id: Date.now(),
-      ...recordForm,
-      hotspots: [
-        { id: Date.now() + 1, module: "待复核组件", temperatureDelta: "待复核", severity: recordForm.maxSeverity, confidence: "待识别", frame: "待定位" },
-      ],
-      remediation: "待生成闭环建议，请完成复核后补充处置策略。",
-    });
+const saveRecord = async () => {
+  if (editingRecordId.value === null) {
+    return;
   }
 
-  resetForm();
-  isFormOpen.value = false;
+  try {
+    const response = await fetch(`http://127.0.0.1:8000/hotspot-management/records/${editingRecordId.value}`, {
+      method: "PUT",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        process_status: recordForm.processStatus,
+        report_status: recordForm.reportStatus,
+        report_path: recordForm.reportPath || null,
+        defect_summary: recordForm.defectSummary,
+        hotspot_component_count: recordForm.hotspotComponentCount,
+      }),
+    });
+
+    const result = await response.json();
+
+    if (!response.ok || !result.success) {
+      window.alert(result.detail || result.message || "热斑检测记录保存失败");
+      return;
+    }
+
+    const apiRecords = Array.isArray(result.data) ? result.data : [];
+    refreshRecordsFromApiRecords(apiRecords);
+    resetForm();
+    isFormOpen.value = false;
+  } catch (error) {
+    console.error("保存热斑检测记录接口调用失败：", error);
+    window.alert("保存热斑检测记录接口调用失败，请确认后端服务已启动");
+  }
 };
 
-const deleteRecord = (recordId: number) => {
-  const confirmed = window.confirm("确认删除该检测记录？");
+const deleteRecord = async (recordId: number) => {
+  const confirmed = window.confirm("确认删除该热斑检测记录？");
 
   if (!confirmed) {
     return;
   }
 
-  inspectionRecords.value = inspectionRecords.value.filter((record) => record.id !== recordId);
+  try {
+    const response = await fetch(`http://127.0.0.1:8000/hotspot-management/records/${recordId}`, {
+      method: "DELETE",
+    });
 
-  if (editingRecordId.value === recordId) {
-    resetForm();
-  }
+    const result = await response.json();
 
-  if (selectedRecord.value?.id === recordId) {
-    closeRecordDetail();
+    if (!response.ok || !result.success) {
+      window.alert(result.detail || result.message || "热斑检测记录删除失败");
+      return;
+    }
+
+    const apiRecords = Array.isArray(result.data) ? result.data : [];
+    refreshRecordsFromApiRecords(apiRecords);
+
+    if (editingRecordId.value === recordId) {
+      resetForm();
+      isFormOpen.value = false;
+    }
+
+    if (selectedRecord.value?.id === recordId) {
+      closeRecordDetail();
+    }
+  } catch (error) {
+    console.error("删除热斑检测记录接口调用失败：", error);
+    window.alert("删除热斑检测记录接口调用失败，请确认后端服务已启动");
   }
 };
+
+const recordDurationValue = (record: HotspotRecord) => Number(record.detectDuration);
+
+const formatDuration = (duration: number) => {
+  if (!Number.isFinite(duration) || duration <= 0) {
+    return "未记录";
+  }
+
+  return `${duration.toFixed(2)} 分钟`;
+};
+
+onMounted(() => {
+  void fetchHotspotRecords();
+});
 </script>
 
 <style scoped>
@@ -621,8 +652,9 @@ const deleteRecord = (recordId: number) => {
 
 .table-panel {
   min-width: 0;
+  height: 100%;
   display: grid;
-  grid-template-rows: auto auto;
+  grid-template-rows: auto minmax(0, 1fr);
   gap: 8px;
   overflow: hidden;
 }
@@ -699,54 +731,105 @@ const deleteRecord = (recordId: number) => {
   background-repeat: no-repeat;
 }
 
-.hotspot-table {
+.hotspot-table-scroll {
+  position: relative;
   min-height: 0;
-  display: grid;
-  grid-template-rows: auto auto;
-  align-content: start;
-  gap: 6px;
-  overflow: hidden;
+  height: 100%;
+  overflow-x: auto;
+  overflow-y: hidden;
   border-radius: 8px;
+  padding-bottom: 8px;
+  scrollbar-color: #b8c7dc #eef3fa;
+  scrollbar-width: thin;
 }
 
-.table-body {
-  min-height: 0;
-  max-height: 464px;
-  display: grid;
-  align-content: start;
-  gap: 6px;
-  overflow-y: auto;
-  overscroll-behavior: contain;
-  padding: 0;
-  scrollbar-width: none;
+.hotspot-table {
+  width: max-content;
+  min-width: 100%;
+  border-collapse: separate;
+  border-spacing: 0 6px;
+  table-layout: auto;
 }
 
-.table-body::-webkit-scrollbar {
+.table-body:empty {
   display: none;
+}
+
+.hotspot-table-scroll::-webkit-scrollbar {
+  height: 10px;
+}
+
+.hotspot-table-scroll::-webkit-scrollbar-track {
+  border-radius: 999px;
+  background: #eef3fa;
+}
+
+.hotspot-table-scroll::-webkit-scrollbar-thumb {
+  border: 2px solid #eef3fa;
+  border-radius: 999px;
+  background: #b8c7dc;
+}
+
+.hotspot-table-scroll::-webkit-scrollbar-thumb:hover {
+  background: #95a9c3;
 }
 
 .table-row {
   min-height: 48px;
-  border: 1px solid rgba(224, 232, 243, 0.85);
-  border-radius: 8px;
-  background: #ffffff;
-  display: grid;
-  grid-template-columns: minmax(190px, 1.25fr) minmax(190px, 1.2fr) minmax(120px, 0.8fr) minmax(138px, 0.86fr) minmax(70px, 0.45fr) minmax(92px, 0.6fr) minmax(92px, 0.6fr) minmax(88px, 0.58fr) 82px;
-  align-items: center;
-  gap: 10px;
-  padding: 6px 10px;
   font-size: 14px;
+}
+
+.table-row > th,
+.table-row > td {
+  height: 48px;
+  border-top: 1px solid rgba(224, 232, 243, 0.85);
+  border-bottom: 1px solid rgba(224, 232, 243, 0.85);
+  background: #ffffff;
+  padding: 6px 20px 6px 0;
+  text-align: left;
+  vertical-align: middle;
+  white-space: nowrap;
+}
+
+.table-row > th:first-child,
+.table-row > td:first-child {
+  border-left: 1px solid rgba(224, 232, 243, 0.85);
+  border-radius: 8px 0 0 8px;
+  padding-left: 10px;
+}
+
+.table-row > th:last-child,
+.table-row > td:last-child {
+  position: sticky;
+  right: 0;
+  z-index: 2;
+  border-right: 1px solid rgba(224, 232, 243, 0.85);
+  border-radius: 0 8px 8px 0;
+  padding: 6px 12px;
+  background:
+    linear-gradient(90deg, rgba(255, 255, 255, 0.76), #ffffff 18px),
+    #ffffff;
+  box-shadow: -12px 0 18px rgba(255, 255, 255, 0.88);
 }
 
 .table-head {
   min-height: 32px;
   color: #70839f;
-  background: #f5f8fd;
   font-size: 12px;
   font-weight: 700;
 }
 
-.table-head span:last-child {
+.table-head > th {
+  height: 32px;
+  background: #f5f8fd;
+  font: inherit;
+}
+
+.table-head th:last-child {
+  z-index: 3;
+  background:
+    linear-gradient(90deg, rgba(245, 248, 253, 0.72), #f5f8fd 18px),
+    #f5f8fd;
   text-align: center;
 }
 
@@ -754,8 +837,11 @@ const deleteRecord = (recordId: number) => {
   min-width: 0;
 }
 
+.cell-text {
+  white-space: nowrap;
+}
+
 .record-link {
-  max-width: 100%;
   border: 0;
   background: transparent;
   color: #182438;
@@ -766,8 +852,6 @@ const deleteRecord = (recordId: number) => {
   line-height: 1.2;
   text-align: left;
   cursor: pointer;
-  overflow: hidden;
-  text-overflow: ellipsis;
   white-space: nowrap;
 }
 
@@ -785,8 +869,8 @@ const deleteRecord = (recordId: number) => {
   font-weight: 900;
 }
 
-.severity-pill,
-.status-pill {
+.status-pill,
+.report-pill {
   width: max-content;
   min-width: 56px;
   border-radius: 999px;
@@ -796,22 +880,8 @@ const deleteRecord = (recordId: number) => {
   text-align: center;
 }
 
-.severity-pill.高风险 {
-  background: #ffe8ec;
-  color: #c9364b;
-}
 
-.severity-pill.中风险 {
-  background: #fff1d7;
-  color: #b66d00;
-}
-
-.severity-pill.低风险 {
-  background: #e8f6ff;
-  color: #1b6ec8;
-}
-
-.status-pill.待复核 {
+.status-pill.未处理 {
   background: #eef3fb;
   color: #58708f;
 }
@@ -821,16 +891,25 @@ const deleteRecord = (recordId: number) => {
   color: #07965e;
 }
 
-.status-pill.已闭环 {
+.status-pill.已处理 {
+  background: #e9f2ff;
+  color: #246fd4;
+}
+
+.report-pill.未生成 {
+  background: #fff1d7;
+  color: #b66d00;
+}
+
+.report-pill.已生成 {
   background: #e9f2ff;
   color: #246fd4;
 }
 
 .row-actions {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 12px;
+  min-width: 82px;
+  text-align: center;
+  white-space: nowrap;
 }
 
 .row-actions button,
@@ -845,14 +924,23 @@ const deleteRecord = (recordId: number) => {
   cursor: pointer;
 }
 
+.row-actions button + button {
+  margin-left: 12px;
+}
+
 .row-actions button:hover,
 .ghost-icon:hover {
   color: #1f66ed;
 }
 
 .empty-state {
-  margin: 18px 0 0;
+  position: absolute;
+  inset: 38px 0 0;
+  margin: 0;
   color: #7d8da5;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   text-align: center;
   font-size: 14px;
   font-weight: 700;
@@ -865,15 +953,33 @@ const deleteRecord = (recordId: number) => {
   z-index: 30;
   background: rgba(15, 23, 38, 0.28);
   display: flex;
+}
+
+.form-overlay {
   justify-content: flex-end;
 }
 
-.form-panel,
-.detail-panel {
+.detail-overlay {
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+}
+
+.form-panel {
   width: min(440px, 92vw);
   height: 100%;
   background: #ffffff;
   box-shadow: -18px 0 38px rgba(18, 31, 51, 0.16);
+  padding: 24px;
+  overflow-y: auto;
+}
+
+.detail-panel {
+  width: min(980px, 92vw);
+  max-height: min(760px, 86vh);
+  border-radius: 10px;
+  background: #ffffff;
+  box-shadow: 0 24px 60px rgba(18, 31, 51, 0.22);
   padding: 24px;
   overflow-y: auto;
 }
@@ -936,19 +1042,25 @@ const deleteRecord = (recordId: number) => {
   border: 1px solid rgba(224, 232, 243, 0.86);
   border-radius: 8px;
   background: #f8fbff;
-  padding: 10px;
+  min-height: 50px;
+  padding: 8px 14px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
 }
 
 .detail-hero span,
 .detail-grid dt {
+  flex: 0 0 auto;
   color: #71829b;
   font-size: 12px;
   font-weight: 800;
 }
 
 .detail-hero strong {
-  display: block;
-  margin-top: 8px;
+  display: inline-flex;
+  margin-top: 0;
   color: #101827;
   font-size: 17px;
 }
@@ -962,15 +1074,45 @@ const deleteRecord = (recordId: number) => {
 .detail-grid {
   margin: 0;
   display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 8px;
 }
 
 .detail-grid dd {
-  margin: 6px 0 0;
+  min-width: 0;
+  margin: 0;
   color: #172033;
   font-size: 14px;
   font-weight: 700;
   line-height: 1.45;
+  text-align: right;
+  overflow-wrap: anywhere;
+}
+
+.report-view-button {
+  height: 32px;
+  border: 1px solid rgba(36, 111, 212, 0.24);
+  border-radius: 999px;
+  background: #e9f2ff;
+  color: #246fd4;
+  padding: 0 14px;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.report-view-button:hover,
+.report-view-button:focus-visible {
+  border-color: rgba(36, 111, 212, 0.44);
+  background: #dcecff;
+  outline: none;
+}
+
+.report-view-button:disabled {
+  background: #eef3fb;
+  color: #7c8da5;
+  cursor: not-allowed;
 }
 
 .hotspot-detail-list {
@@ -1034,7 +1176,6 @@ const deleteRecord = (recordId: number) => {
 
 @media (max-width: 1280px) {
   .table-row {
-    grid-template-columns: minmax(180px, 1.2fr) minmax(170px, 1.12fr) minmax(104px, 0.72fr) minmax(122px, 0.8fr) minmax(64px, 0.42fr) minmax(86px, 0.56fr) minmax(86px, 0.56fr) minmax(78px, 0.52fr) 76px;
     gap: 8px;
     font-size: 13px;
   }
@@ -1055,12 +1196,35 @@ const deleteRecord = (recordId: number) => {
     margin-left: 0;
     flex-wrap: wrap;
   }
+
+  .detail-grid {
+    grid-template-columns: 1fr;
+  }
 }
 
 @media (max-width: 720px) {
   .summary-grid,
   .detail-hero {
     grid-template-columns: 1fr;
+  }
+
+  .detail-overlay {
+    padding: 12px;
+  }
+
+  .detail-panel {
+    width: 100%;
+    max-height: 90vh;
+  }
+}
+
+@media (min-width: 1180px) {
+  .detail-panel {
+    width: min(1120px, 88vw);
+  }
+
+  .detail-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
   }
 }
 </style>

@@ -26,12 +26,15 @@
         @keydown.enter.prevent="emit('select', record)"
         @keydown.space.prevent="emit('select', record)"
       >
-        <strong class="station-name">{{ record.stationName }}</strong>
-        <time>{{ record.endTime ?? "检测中" }}</time>
-        <span class="inspection-result" :class="statusClass(record.abnormalCount)">
+        <strong class="station-name">{{ record.taskName || "未填写屋顶" }}</strong>
+        <time>{{ formatEndTime(record.endTime) }}</time>
+        <span class="task-status" :class="taskStatusClass(record)">
+          {{ taskStatusText(record) }}
+        </span>
+        <span class="inspection-result" :class="statusClass(record)">
           <span class="status-badge">
-            {{ statusText(record.abnormalCount) }}
-            <strong v-if="shouldShowAbnormalCount(record.abnormalCount)">
+            {{ statusText(record) }}
+            <strong v-if="shouldShowAbnormalCount(record)">
               {{ formatAbnormalCount(record.abnormalCount) }}
             </strong>
           </span>
@@ -64,6 +67,40 @@ const emit = defineEmits<{
   select: [record: RunLogItem];
 }>();
 
+type ExtendedRunLogItem = RunLogItem & {
+  taskStatus?: string | null;
+};
+
+const formatEndTime = (endTime: string | null) => {
+  if (!endTime) {
+    return "检测中";
+  }
+
+  return endTime;
+};
+
+const taskStatusText = (record: RunLogItem) => {
+  return (record as ExtendedRunLogItem).taskStatus || "检测中";
+};
+
+const taskStatusClass = (record: RunLogItem) => {
+  const taskStatus = taskStatusText(record);
+
+  if (taskStatus === "检测完毕") {
+    return "finished";
+  }
+
+  if (taskStatus === "检测中断") {
+    return "interrupted";
+  }
+
+  if (taskStatus === "检测失败") {
+    return "failed";
+  }
+
+  return "running";
+};
+
 const formatAbnormalCount = (count: number | null) => {
   if (count === null) {
     return "--";
@@ -72,7 +109,23 @@ const formatAbnormalCount = (count: number | null) => {
   return count.toString();
 };
 
-const statusText = (count: number | null) => {
+const statusText = (record: RunLogItem) => {
+  const taskStatus = taskStatusText(record);
+
+  if (taskStatus === "检测中断") {
+    return "中断";
+  }
+
+  if (taskStatus === "检测失败") {
+    return "失败";
+  }
+
+  if (taskStatus === "检测中") {
+    return "检测中";
+  }
+
+  const count = record.abnormalCount;
+
   if (count === null) {
     return "检测中";
   }
@@ -80,7 +133,23 @@ const statusText = (count: number | null) => {
   return count > 0 ? "异常" : "正常";
 };
 
-const statusClass = (count: number | null) => {
+const statusClass = (record: RunLogItem) => {
+  const taskStatus = taskStatusText(record);
+
+  if (taskStatus === "检测中断") {
+    return "interrupted";
+  }
+
+  if (taskStatus === "检测失败") {
+    return "failed";
+  }
+
+  if (taskStatus === "检测中") {
+    return "pending";
+  }
+
+  const count = record.abnormalCount;
+
   if (count === null) {
     return "pending";
   }
@@ -88,7 +157,15 @@ const statusClass = (count: number | null) => {
   return count > 0 ? "abnormal" : "normal";
 };
 
-const shouldShowAbnormalCount = (count: number | null) => count !== null && count > 0;
+const shouldShowAbnormalCount = (record: RunLogItem) => {
+  const taskStatus = taskStatusText(record);
+
+  if (taskStatus !== "检测完毕") {
+    return false;
+  }
+
+  return record.abnormalCount !== null && record.abnormalCount > 0;
+};
 </script>
 
 <style scoped>
@@ -167,7 +244,7 @@ header {
   border: 0;
   background: transparent;
   display: grid;
-  grid-template-columns: minmax(180px, 1fr) minmax(148px, 0.82fr) minmax(96px, auto);
+  grid-template-columns: minmax(132px, 1fr) minmax(136px, 0.78fr) minmax(82px, auto) minmax(78px, auto);
   align-items: center;
   gap: 16px;
   min-height: 48px;
@@ -192,10 +269,15 @@ header {
   font-size: 13px;
   font-weight: 500;
   line-height: 1.4;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
 }
 
 .station-name,
 time,
+.task-status,
 .inspection-result {
   min-width: 0;
   font-weight: 800;
@@ -214,6 +296,36 @@ time {
   color: #162033;
   font-size: 14px;
   white-space: nowrap;
+}
+
+.task-status {
+  width: fit-content;
+  border-radius: 999px;
+  padding: 4px 10px;
+  font-size: 13px;
+  font-weight: 900;
+  white-space: nowrap;
+  justify-self: end;
+}
+
+.task-status.finished {
+  color: #16835f;
+  background: rgba(41, 190, 128, 0.12);
+}
+
+.task-status.running {
+  color: #246fd4;
+  background: rgba(36, 111, 212, 0.12);
+}
+
+.task-status.interrupted {
+  color: #9a6a12;
+  background: rgba(247, 169, 40, 0.14);
+}
+
+.task-status.failed {
+  color: #d72d45;
+  background: rgba(255, 91, 110, 0.12);
 }
 
 .inspection-result {
@@ -235,13 +347,23 @@ time {
 }
 
 .inspection-result.abnormal,
-.inspection-result.pending {
+.inspection-result.pending,
+.inspection-result.interrupted {
   color: #f47a18;
 }
 
 .inspection-result.abnormal .status-badge,
-.inspection-result.pending .status-badge {
+.inspection-result.pending .status-badge,
+.inspection-result.interrupted .status-badge {
   background: rgba(255, 247, 237, 0.92);
+}
+
+.inspection-result.failed {
+  color: #d72d45;
+}
+
+.inspection-result.failed .status-badge {
+  background: rgba(255, 91, 110, 0.12);
 }
 
 .inspection-result.normal {
@@ -256,11 +378,6 @@ time {
   font-size: 14px;
   font-weight: 900;
   line-height: 1;
-}
-
-.record-empty {
-  display: flex;
-  align-items: center;
 }
 
 @media (max-width: 760px) {
@@ -279,6 +396,10 @@ time {
 
   .inspection-result {
     justify-content: flex-start;
+  }
+
+  .task-status {
+    justify-self: start;
   }
 }
 </style>

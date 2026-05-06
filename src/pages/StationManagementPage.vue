@@ -19,8 +19,8 @@
             <select v-model="statusFilter" class="status-filter" aria-label="状态筛选">
               <option value="all">全部状态</option>
               <option value="运行中">运行中</option>
-              <option value="维护中">维护中</option>
-              <option value="离线">离线</option>
+              <option value="处理中">处理中</option>
+              <option value="已停运">已停运</option>
             </select>
 
             <button type="button" class="primary-command" @click="openCreateForm">
@@ -30,27 +30,52 @@
           </div>
         </div>
 
-        <div class="station-table" role="table" aria-label="电站列表">
+        <div
+          ref="stationTableRef"
+          class="station-table"
+          :class="{ 'is-vertical-scrolling': isVerticalScrolling }"
+          role="table"
+          aria-label="电站列表"
+          @scroll="handleTableScroll"
+          @wheel="handleTableWheel"
+        >
+          <div class="table-content">
           <div class="table-row table-head" role="row">
+            <span role="columnheader">公司名称</span>
             <span role="columnheader">电站名称</span>
-            <span role="columnheader">区域</span>
+            <span role="columnheader">电站地址</span>
+            <span role="columnheader">屋顶编号</span>
+            <span role="columnheader">屋顶名称</span>
             <span role="columnheader">容量</span>
-            <span role="columnheader">状态</span>
+            <span role="columnheader">类型</span>
             <span role="columnheader">负责人</span>
+            <span role="columnheader">天气</span>
+            <span role="columnheader">经度</span>
+            <span role="columnheader">纬度</span>
+            <span role="columnheader">状态</span>
             <span role="columnheader">操作</span>
           </div>
 
           <div class="table-body">
             <div v-for="station in filteredStations" :key="station.id" class="table-row" role="row">
+              <span role="cell" class="cell-text" :title="station.companyName">{{ station.companyName || "未填写" }}</span>
               <div class="station-name" role="cell">
                 <button type="button" class="station-link" @click="openStationDetail(station)">
                   {{ station.name }}
                 </button>
               </div>
-              <span role="cell">{{ station.region }}</span>
+              <span role="cell" class="cell-text" :title="station.region">{{ station.region }}</span>
+              <span role="cell">{{ station.roofNumber }}</span>
+              <span role="cell" class="cell-text" :title="station.roofName">{{ station.roofName || "未填写" }}</span>
               <span role="cell">{{ station.capacity }}</span>
-              <span role="cell" class="status-pill" :class="station.status">{{ station.status }}</span>
+              <span role="cell">{{ station.type }}</span>
               <span role="cell">{{ station.owner }}</span>
+              <span role="cell">{{ station.weather }}</span>
+              <span role="cell">{{ station.longitude }}</span>
+              <span role="cell">{{ station.latitude }}</span>
+              <span role="cell" class="status-cell">
+                <span class="status-pill" :class="station.status">{{ station.status }}</span>
+              </span>
               <div class="row-actions" role="cell">
                 <button type="button" aria-label="编辑电站" @click="openEditForm(station)">
                   <BaseIcon name="edit" :size="18" :stroke-width="2.6" />
@@ -62,7 +87,9 @@
             </div>
           </div>
 
-          <p v-if="filteredStations.length === 0" class="empty-state">暂无匹配电站</p>
+            <p v-if="isLoadingStations" class="empty-state">正在加载电站数据...</p>
+            <p v-else-if="filteredStations.length === 0" class="empty-state">暂无匹配电站</p>
+          </div>
         </div>
       </div>
     </section>
@@ -81,34 +108,69 @@
 
         <form class="station-form" @submit.prevent="saveStation">
           <label>
+            公司名称
+            <input v-model.trim="stationForm.companyName" required type="text" />
+          </label>
+          <label>
             电站名称
             <input v-model.trim="stationForm.name" required type="text" />
           </label>
           <label>
-            电站编码
-            <input v-model.trim="stationForm.code" required type="text" />
-          </label>
-          <label>
-            所属区域
+            电站地址
             <input v-model.trim="stationForm.region" required type="text" />
           </label>
           <label>
-            装机容量
+            屋顶编号
+            <input v-model.trim="stationForm.roofNumber" required type="text" />
+          </label>
+          <label>
+            屋顶名称
+            <input v-model.trim="stationForm.roofName" required type="text" />
+          </label>
+          <label>
+            容量
             <input v-model.trim="stationForm.capacity" required type="text" />
           </label>
           <label>
-            运行状态
-            <select v-model="stationForm.status">
-              <option value="运行中">运行中</option>
-              <option value="维护中">维护中</option>
-              <option value="离线">离线</option>
-            </select>
+            类型
+            <input v-model.trim="stationForm.type" required type="text" />
           </label>
           <label>
             负责人
             <input v-model.trim="stationForm.owner" required type="text" />
           </label>
-
+          <label>
+            天气
+            <input v-model.trim="stationForm.weather" required type="text" />
+          </label>
+          <label>
+            经度
+            <input v-model.trim="stationForm.longitude" required type="text" />
+          </label>
+          <label>
+            纬度
+            <input v-model.trim="stationForm.latitude" required type="text" />
+          </label>
+          <div class="srt-import-field">
+            <button type="button" class="srt-import-button" @click="triggerSrtFileInput">
+              导入SRT文件
+            </button>
+            <input
+              ref="srtFileInputRef"
+              class="srt-file-input"
+              type="file"
+              accept=".srt,text/plain"
+              @change="handleSrtFileChange"
+            />
+          </div>
+          <label>
+            运行状态
+            <select v-model="stationForm.status">
+              <option value="运行中">运行中</option>
+              <option value="处理中">处理中</option>
+              <option value="已停运">已停运</option>
+            </select>
+          </label>
           <button type="submit" class="save-button">
             {{ formMode === "create" ? "创建电站" : "保存修改" }}
           </button>
@@ -131,75 +193,63 @@
 
         <section class="detail-hero">
           <div>
-            <span>装机容量</span>
-            <strong>{{ selectedStation.capacity }}</strong>
+            <span>公司名称</span>
+            <strong>{{ selectedStation.companyName || "未填写" }}</strong>
+          </div>
+          <div>
+            <span>电站名称</span>
+            <strong>{{ selectedStation.name || "未填写" }}</strong>
           </div>
           <div>
             <span>运行状态</span>
             <strong class="status-pill" :class="selectedStation.status">{{ selectedStation.status }}</strong>
           </div>
-          <div>
-            <span>负责人</span>
-            <strong>{{ selectedStation.owner }}</strong>
-          </div>
         </section>
 
         <section class="detail-section">
-          <h3>基础信息</h3>
+          <h3>数据库信息</h3>
           <dl class="detail-grid">
             <div>
-              <dt>电站名称</dt>
-              <dd>{{ selectedStation.name }}</dd>
+              <dt>电站地址</dt>
+              <dd>{{ selectedStation.region || "未填写" }}</dd>
             </div>
             <div>
-              <dt>电站编码</dt>
-              <dd>{{ selectedStation.code }}</dd>
+              <dt>屋顶编号</dt>
+              <dd>{{ selectedStation.roofNumber || "未填写" }}</dd>
             </div>
             <div>
-              <dt>所属区域</dt>
-              <dd>{{ selectedStation.region }}</dd>
+              <dt>屋顶名称</dt>
+              <dd>{{ selectedStation.roofName || "未填写" }}</dd>
             </div>
             <div>
-              <dt>并网电压</dt>
-              <dd>{{ selectedStationDetail.gridVoltage }}</dd>
+              <dt>容量</dt>
+              <dd>{{ selectedStation.capacity || "未填写" }}</dd>
             </div>
             <div>
-              <dt>投运日期</dt>
-              <dd>{{ selectedStationDetail.commissionedAt }}</dd>
+              <dt>类型</dt>
+              <dd>{{ selectedStation.type || "未填写" }}</dd>
             </div>
             <div>
-              <dt>详细地址</dt>
-              <dd>{{ selectedStationDetail.address }}</dd>
-            </div>
-          </dl>
-        </section>
-
-        <section class="detail-section">
-          <h3>资产与运行</h3>
-          <dl class="detail-grid">
-            <div>
-              <dt>组件数量</dt>
-              <dd>{{ selectedStationDetail.moduleCount }}</dd>
+              <dt>负责人</dt>
+              <dd>{{ selectedStation.owner || "未填写" }}</dd>
             </div>
             <div>
-              <dt>逆变器</dt>
-              <dd>{{ selectedStationDetail.inverterCount }}</dd>
+              <dt>天气</dt>
+              <dd>{{ selectedStation.weather || "未填写" }}</dd>
             </div>
             <div>
-              <dt>今日发电</dt>
-              <dd>{{ selectedStationDetail.todayEnergy }}</dd>
+              <dt>经度</dt>
+              <dd>{{ selectedStation.longitude || "未填写" }}</dd>
             </div>
             <div>
-              <dt>月累计发电</dt>
-              <dd>{{ selectedStationDetail.monthEnergy }}</dd>
+              <dt>纬度</dt>
+              <dd>{{ selectedStation.latitude || "未填写" }}</dd>
             </div>
             <div>
-              <dt>年等效小时</dt>
-              <dd>{{ selectedStationDetail.equivalentHours }}</dd>
-            </div>
-            <div>
-              <dt>最近巡检</dt>
-              <dd>{{ selectedStationDetail.lastInspection }}</dd>
+              <dt>状态</dt>
+              <dd>
+                <span class="status-pill" :class="selectedStation.status">{{ selectedStation.status }}</span>
+              </dd>
             </div>
           </dl>
         </section>
@@ -209,14 +259,14 @@
 </template>
 
 <script setup lang="ts">
-import { computed, reactive, ref } from "vue";
+import { computed, onMounted, reactive, ref } from "vue";
 import BaseIcon from "@/components/base/BaseIcon.vue";
 
 defineOptions({
   name: "StationManagementPage",
 });
 
-type StationStatus = "运行中" | "维护中" | "离线";
+type StationStatus = "运行中" | "处理中" | "已停运";
 
 interface StationRecord {
   id: number;
@@ -226,6 +276,61 @@ interface StationRecord {
   capacity: string;
   status: StationStatus;
   owner: string;
+  companyName?: string;
+  stationName?: string;
+  roofName?: string;
+  roofNumber?: string;
+  type?: string;
+  weather?: string;
+  longitude?: string;
+  latitude?: string;
+  companyId?: string;
+  minLongitude?: string;
+  maxLongitude?: string;
+  minLatitude?: string;
+  maxLatitude?: string;
+  originalRoofName?: string;
+}
+
+interface StationManagementApiRecord {
+  id?: number | string | null;
+  code?: string | null;
+  name?: string | null;
+  stationName?: string | null;
+  companyName?: string | null;
+  roofName?: string | null;
+  region?: string | null;
+  capacity?: string | number | null;
+  status?: string | null;
+  owner?: string | null;
+  type?: string | null;
+  weather?: string | null;
+  longitude?: number | string | null;
+  latitude?: number | string | null;
+  minLongitude?: number | string | null;
+  maxLongitude?: number | string | null;
+  minLatitude?: number | string | null;
+  maxLatitude?: number | string | null;
+  raw?: {
+    id?: number | string | null;
+    name?: string | null;
+    station_name?: string | null;
+    station_address?: string | null;
+    roof_number?: number | string | null;
+    roof_name?: string | null;
+    size?: string | number | null;
+    type?: string | null;
+    person?: string | null;
+    weather?: string | null;
+    longitude?: number | string | null;
+    latitude?: number | string | null;
+    company_id?: number | string | null;
+    min_longitude?: number | string | null;
+    max_longitude?: number | string | null;
+    min_latitude?: number | string | null;
+    max_latitude?: number | string | null;
+    status?: string | null;
+  } | null;
 }
 
 type StationForm = Omit<StationRecord, "id">;
@@ -238,118 +343,24 @@ const createEmptyForm = (): StationForm => ({
   capacity: "",
   status: "运行中",
   owner: "",
+  companyName: "",
+  stationName: "",
+  roofName: "",
+  roofNumber: "",
+  type: "",
+  weather: "",
+  longitude: "",
+  latitude: "",
+  companyId: "",
+  minLongitude: "",
+  maxLongitude: "",
+  minLatitude: "",
+  maxLatitude: "",
+  originalRoofName: "",
 });
 
-const stations = ref<StationRecord[]>([
-  {
-    id: 1,
-    name: "嘉兴一号屋顶光伏电站",
-    code: "SUN-JX-001",
-    region: "浙江嘉兴",
-    capacity: "18.6 MW",
-    status: "运行中",
-    owner: "刘海鑫",
-  },
-  {
-    id: 2,
-    name: "巴州戈壁集中式电站",
-    code: "SUN-XJ-025",
-    region: "新疆巴州",
-    capacity: "52.4 MW",
-    status: "维护中",
-    owner: "陈卓",
-  },
-  {
-    id: 3,
-    name: "苏南工业园分布式电站",
-    code: "SUN-SN-013",
-    region: "江苏苏州",
-    capacity: "9.8 MW",
-    status: "运行中",
-    owner: "王琪",
-  },
-  {
-    id: 4,
-    name: "海盐组件测试电站",
-    code: "SUN-HY-006",
-    region: "浙江海盐",
-    capacity: "6.2 MW",
-    status: "离线",
-    owner: "赵宁",
-  },
-  {
-    id: 5,
-    name: "宁波湾区屋顶电站",
-    code: "SUN-NB-018",
-    region: "浙江宁波",
-    capacity: "24.7 MW",
-    status: "运行中",
-    owner: "周航",
-  },
-  {
-    id: 6,
-    name: "常州高新区分布式电站",
-    code: "SUN-CZ-032",
-    region: "江苏常州",
-    capacity: "31.5 MW",
-    status: "维护中",
-    owner: "林澈",
-  },
-  {
-    id: 7,
-    name: "绍兴纺织园光伏电站",
-    code: "SUN-SX-011",
-    region: "浙江绍兴",
-    capacity: "12.3 MW",
-    status: "运行中",
-    owner: "许诺",
-  },
-  {
-    id: 8,
-    name: "湖州物流园储能光伏站",
-    code: "SUN-HZ-029",
-    region: "浙江湖州",
-    capacity: "36.8 MW",
-    status: "运行中",
-    owner: "唐亦",
-  },
-  {
-    id: 9,
-    name: "杭州临平产业园电站",
-    code: "SUN-HL-041",
-    region: "浙江杭州",
-    capacity: "21.4 MW",
-    status: "运行中",
-    owner: "沈知",
-  },
-  {
-    id: 10,
-    name: "嘉善智慧厂区光伏站",
-    code: "SUN-JS-016",
-    region: "浙江嘉善",
-    capacity: "14.9 MW",
-    status: "维护中",
-    owner: "顾然",
-  },
-  {
-    id: 11,
-    name: "温州瓯海屋顶电站",
-    code: "SUN-WZ-023",
-    region: "浙江温州",
-    capacity: "17.6 MW",
-    status: "运行中",
-    owner: "秦越",
-  },
-  {
-    id: 12,
-    name: "金华低碳园光伏电站",
-    code: "SUN-JH-037",
-    region: "浙江金华",
-    capacity: "28.2 MW",
-    status: "离线",
-    owner: "邵宁",
-  },
-]);
+const stations = ref<StationRecord[]>([]);
+const isLoadingStations = ref(false);
 
 const searchKeyword = ref("");
 const statusFilter = ref<StationStatus | "all">("all");
@@ -358,12 +369,213 @@ const editingStationId = ref<number | null>(null);
 const isFormOpen = ref(false);
 const selectedStation = ref<StationRecord | null>(null);
 const stationForm = reactive<StationForm>(createEmptyForm());
+const stationTableRef = ref<HTMLElement | null>(null);
+const srtFileInputRef = ref<HTMLInputElement | null>(null);
+const isVerticalScrolling = ref(false);
+let lastTableScrollTop = 0;
+let verticalScrollbarTimer: ReturnType<typeof window.setTimeout> | null = null;
+
+const normalizeStationStatus = (status: string | null | undefined): StationStatus => {
+  if (
+    status === "运行中" ||
+    status === "处理中" ||
+    status === "已停运"
+  ) {
+    return status;
+  }
+  return "运行中";
+};
+
+const normalizeStationRecord = (record: StationManagementApiRecord, index: number): StationRecord => {
+  const idNumber = Number(record.id);
+  const id = Number.isFinite(idNumber) ? idNumber : Date.now() + index;
+  const stationName = record.stationName || record.name || "未命名电站";
+  const capacityText = record.capacity === null || record.capacity === undefined ? "未填写" : String(record.capacity);
+
+  return {
+    id,
+    name: stationName,
+    code: record.code || `STATION-${id}`,
+    region: record.region || record.raw?.station_address || "未填写",
+    capacity: capacityText,
+    status: normalizeStationStatus(record.status || record.raw?.status),
+    owner: record.owner || record.raw?.person || "未填写",
+    companyName: record.companyName || record.raw?.name || "",
+    stationName,
+    roofName: record.roofName || record.raw?.roof_name || "",
+    roofNumber: formatNullableValue(record.raw?.roof_number),
+    type: formatNullableValue(record.type || record.raw?.type),
+    weather: formatNullableValue(record.weather || record.raw?.weather),
+    longitude: formatNullableValue(record.longitude ?? record.raw?.longitude),
+    latitude: formatNullableValue(record.latitude ?? record.raw?.latitude),
+    companyId: formatNullableValue(record.raw?.company_id),
+    minLongitude: formatNullableValue(record.minLongitude ?? record.raw?.min_longitude),
+    maxLongitude: formatNullableValue(record.maxLongitude ?? record.raw?.max_longitude),
+    minLatitude: formatNullableValue(record.minLatitude ?? record.raw?.min_latitude),
+    maxLatitude: formatNullableValue(record.maxLatitude ?? record.raw?.max_latitude),
+    originalRoofName: record.roofName || record.raw?.roof_name || "",
+  };
+};
+
+const formatNullableValue = (value: unknown) => {
+  if (value === null || value === undefined || value === "") {
+    return "未填写";
+  }
+
+  return String(value);
+};
+
+const fetchStations = async () => {
+  isLoadingStations.value = true;
+
+  try {
+    const response = await fetch("http://127.0.0.1:8000/station-management/stations");
+
+    if (!response.ok) {
+      console.error("获取电站列表失败：", response.status, response.statusText);
+      return;
+    }
+
+    const result = await response.json();
+    const apiRecords = Array.isArray(result.data) ? result.data : [];
+
+    refreshStationsFromApiRecords(apiRecords);
+  } catch (error) {
+    console.error("获取电站列表接口调用失败：", error);
+  } finally {
+    isLoadingStations.value = false;
+  }
+};
+
+const refreshStationsFromApiRecords = (apiRecords: StationManagementApiRecord[]) => {
+  stations.value = apiRecords.map((record: StationManagementApiRecord, index: number) =>
+    normalizeStationRecord(record, index),
+  );
+};
+
+const buildStationManagementPayload = () => ({
+  company_name: stationForm.companyName,
+  station_name: stationForm.name,
+  station_address: stationForm.region,
+  roof_number: stationForm.roofNumber || "",
+  roof_name: stationForm.roofName,
+  size: stationForm.capacity,
+  type: stationForm.type || "",
+  person: stationForm.owner,
+  weather: stationForm.weather || "",
+  longitude: stationForm.longitude || null,
+  latitude: stationForm.latitude || null,
+  min_longitude: stationForm.minLongitude || null,
+  max_longitude: stationForm.maxLongitude || null,
+  min_latitude: stationForm.minLatitude || null,
+  max_latitude: stationForm.maxLatitude || null,
+  status: stationForm.status,
+  original_roof_name: stationForm.originalRoofName || stationForm.roofName,
+});
+
+const triggerSrtFileInput = () => {
+  srtFileInputRef.value?.click();
+};
+
+const extractAverageCoordinateFromSrt = (srtText: string) => {
+  const latitudeMatches = [...srtText.matchAll(/\[latitude:\s*(-?\d+(?:\.\d+)?)\]/gi)];
+  const longitudeMatches = [...srtText.matchAll(/\[longitude:\s*(-?\d+(?:\.\d+)?)\]/gi)];
+  const coordinateCount = Math.min(latitudeMatches.length, longitudeMatches.length);
+
+  if (coordinateCount === 0) {
+    return null;
+  }
+
+  let latitudeTotal = 0;
+  let longitudeTotal = 0;
+
+  for (let index = 0; index < coordinateCount; index += 1) {
+    latitudeTotal += Number(latitudeMatches[index][1]);
+    longitudeTotal += Number(longitudeMatches[index][1]);
+  }
+
+  return {
+    latitude: latitudeTotal / coordinateCount,
+    longitude: longitudeTotal / coordinateCount,
+    count: coordinateCount,
+  };
+};
+
+const handleSrtFileChange = async (event: Event) => {
+  const inputElement = event.target as HTMLInputElement;
+  const srtFile = inputElement.files?.[0];
+
+  if (!srtFile) {
+    return;
+  }
+
+  try {
+    const srtText = await srtFile.text();
+    const averageCoordinate = extractAverageCoordinateFromSrt(srtText);
+
+    if (!averageCoordinate) {
+      window.alert("未在SRT文件中读取到经纬度信息");
+      return;
+    }
+
+    stationForm.longitude = averageCoordinate.longitude.toFixed(9).replace(/0+$/, "").replace(/\.$/, "");
+    stationForm.latitude = averageCoordinate.latitude.toFixed(9).replace(/0+$/, "").replace(/\.$/, "");
+  } catch (error) {
+    console.error("读取SRT文件失败：", error);
+    window.alert("读取SRT文件失败，请确认文件格式是否正确");
+  } finally {
+    inputElement.value = "";
+  }
+};
+
+const showVerticalScrollbarTemporarily = () => {
+  isVerticalScrolling.value = true;
+
+  if (verticalScrollbarTimer) {
+    window.clearTimeout(verticalScrollbarTimer);
+  }
+
+  verticalScrollbarTimer = window.setTimeout(() => {
+    isVerticalScrolling.value = false;
+  }, 900);
+};
+
+const handleTableScroll = () => {
+  const tableElement = stationTableRef.value;
+
+  if (!tableElement) {
+    return;
+  }
+
+  if (tableElement.scrollTop !== lastTableScrollTop) {
+    lastTableScrollTop = tableElement.scrollTop;
+    showVerticalScrollbarTemporarily();
+  }
+};
+
+const handleTableWheel = (event: WheelEvent) => {
+  if (Math.abs(event.deltaY) > Math.abs(event.deltaX)) {
+    showVerticalScrollbarTemporarily();
+  }
+};
 
 const filteredStations = computed(() => {
   const keyword = searchKeyword.value.toLowerCase();
 
   return stations.value.filter((station) => {
-    const matchesKeyword = [station.name, station.code, station.region, station.owner]
+    const matchesKeyword = [
+      station.name,
+      station.code,
+      station.region,
+      station.owner,
+      station.companyName,
+      station.roofName,
+      station.roofNumber,
+      station.type,
+      station.weather,
+      station.longitude,
+      station.latitude,
+    ]
       .join(" ")
       .toLowerCase()
       .includes(keyword);
@@ -373,47 +585,20 @@ const filteredStations = computed(() => {
   });
 });
 
-const summaryItems = computed(() => [
-  { label: "电站总数", value: stations.value.length.toString().padStart(2, "0") },
-  { label: "运行中", value: stations.value.filter((station) => station.status === "运行中").length },
-  { label: "维护中", value: stations.value.filter((station) => station.status === "维护中").length },
-  { label: "总容量", value: "274.4 MW" },
-]);
+const summaryItems = computed(() => {
+  const totalCapacity = stations.value.reduce((sum, station) => {
+    const capacityValue = Number.parseFloat(station.capacity);
+    return Number.isFinite(capacityValue) ? sum + capacityValue : sum;
+  }, 0);
 
-const selectedStationDetail = computed(() => {
-  const station = selectedStation.value;
-
-  if (!station) {
-    return {
-      address: "",
-      commissionedAt: "",
-      gridVoltage: "",
-      moduleCount: "",
-      inverterCount: "",
-      todayEnergy: "",
-      monthEnergy: "",
-      equivalentHours: "",
-      lastInspection: "",
-    };
-  }
-
-  const capacityNumber = Number.parseFloat(station.capacity);
-  const moduleCount = Number.isFinite(capacityNumber) ? Math.round((capacityNumber * 1000) / 0.58) : 0;
-  const inverterCount = Number.isFinite(capacityNumber) ? Math.max(1, Math.round(capacityNumber / 2.8)) : 0;
-  const baseMonthEnergy = Number.isFinite(capacityNumber) ? Math.round(capacityNumber * 112) : 0;
-
-  return {
-    address: `${station.region} · ${station.name.replace("电站", "项目现场")}`,
-    commissionedAt: `202${station.id % 4}-0${(station.id % 8) + 1}-18`,
-    gridVoltage: Number.isFinite(capacityNumber) && capacityNumber >= 30 ? "35 kV" : "10 kV",
-    moduleCount: moduleCount > 0 ? `${moduleCount.toLocaleString()} 块` : "待录入",
-    inverterCount: inverterCount > 0 ? `${inverterCount} 台` : "待录入",
-    todayEnergy: Number.isFinite(capacityNumber) ? `${(capacityNumber * 3.8).toFixed(1)} MWh` : "待统计",
-    monthEnergy: baseMonthEnergy > 0 ? `${baseMonthEnergy.toLocaleString()} MWh` : "待统计",
-    equivalentHours: Number.isFinite(capacityNumber) ? `${(980 + station.id * 17).toLocaleString()} h` : "待统计",
-    lastInspection: station.status === "离线" ? "待安排" : `2026-04-${String(14 + station.id).padStart(2, "0")} 09:30`,
-  };
+  return [
+    { label: "电站总数", value: stations.value.length.toString().padStart(2, "0") },
+    { label: "运行中", value: stations.value.filter((station) => station.status === "运行中").length },
+    { label: "处理中", value: stations.value.filter((station) => station.status === "处理中").length },
+    { label: "总容量", value: `${totalCapacity.toFixed(1)} MW` },
+  ];
 });
+
 
 const assignForm = (station: StationForm) => {
   stationForm.name = station.name;
@@ -422,6 +607,20 @@ const assignForm = (station: StationForm) => {
   stationForm.capacity = station.capacity;
   stationForm.status = station.status;
   stationForm.owner = station.owner;
+  stationForm.companyName = station.companyName || "";
+  stationForm.stationName = station.stationName || station.name;
+  stationForm.roofName = station.roofName || "";
+  stationForm.roofNumber = station.roofNumber || "";
+  stationForm.type = station.type || "";
+  stationForm.weather = station.weather || "";
+  stationForm.longitude = station.longitude || "";
+  stationForm.latitude = station.latitude || "";
+  stationForm.companyId = station.companyId || "";
+  stationForm.minLongitude = station.minLongitude || "";
+  stationForm.maxLongitude = station.maxLongitude || "";
+  stationForm.minLatitude = station.minLatitude || "";
+  stationForm.maxLatitude = station.maxLatitude || "";
+  stationForm.originalRoofName = station.originalRoofName || station.roofName || "";
 };
 
 const resetForm = () => {
@@ -455,41 +654,79 @@ const closeForm = () => {
   resetForm();
 };
 
-const saveStation = () => {
-  if (formMode.value === "edit" && editingStationId.value !== null) {
-    const stationIndex = stations.value.findIndex((station) => station.id === editingStationId.value);
+const saveStation = async () => {
+  const isEditing = formMode.value === "edit" && editingStationId.value !== null;
+  const url = isEditing
+    ? `http://127.0.0.1:8000/station-management/stations/${editingStationId.value}`
+    : "http://127.0.0.1:8000/station-management/stations";
 
-    if (stationIndex >= 0) {
-      stations.value[stationIndex] = {
-        id: editingStationId.value,
-        ...stationForm,
-      };
-    }
-  } else {
-    stations.value.unshift({
-      id: Date.now(),
-      ...stationForm,
+  try {
+    const response = await fetch(url, {
+      method: isEditing ? "PUT" : "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(buildStationManagementPayload()),
     });
-  }
 
-  resetForm();
-  isFormOpen.value = false;
+    const result = await response.json();
+
+    if (!response.ok || !result.success) {
+      window.alert(result.detail || result.message || "电站信息保存失败");
+      return;
+    }
+
+    const apiRecords = Array.isArray(result.data) ? result.data : [];
+    refreshStationsFromApiRecords(apiRecords);
+    resetForm();
+    isFormOpen.value = false;
+  } catch (error) {
+    console.error("保存电站信息接口调用失败：", error);
+    window.alert("保存电站信息接口调用失败，请确认后端服务已启动");
+  }
 };
 
-const deleteStation = (stationId: number) => {
+const deleteStation = async (stationId: number) => {
+  const targetStation = stations.value.find((station) => station.id === stationId);
+
+  if (!targetStation) {
+    window.alert("未找到要删除的电站记录");
+    return;
+  }
+
   const confirmed = window.confirm("确认删除该电站？");
 
   if (!confirmed) {
     return;
   }
 
-  stations.value = stations.value.filter((station) => station.id !== stationId);
+  try {
+    const response = await fetch(`http://127.0.0.1:8000/station-management/stations/${stationId}`, {
+      method: "DELETE",
+    });
 
-  if (editingStationId.value === stationId) {
-    resetForm();
+    const result = await response.json();
+
+    if (!response.ok || !result.success) {
+      window.alert(result.detail || result.message || "电站信息删除失败");
+      return;
+    }
+
+    const apiRecords = Array.isArray(result.data) ? result.data : [];
+    refreshStationsFromApiRecords(apiRecords);
+
+    if (editingStationId.value === stationId) {
+      resetForm();
+    }
+  } catch (error) {
+    console.error("删除电站信息接口调用失败：", error);
+    window.alert("删除电站信息接口调用失败，请确认后端服务已启动");
   }
 };
 
+onMounted(() => {
+  void fetchStations();
+});
 </script>
 
 <style scoped>
@@ -583,8 +820,9 @@ const deleteStation = (stationId: number) => {
 
 .table-panel {
   min-width: 0;
+  height: 100%;
   display: grid;
-  grid-template-rows: auto auto;
+  grid-template-rows: auto minmax(0, 1fr);
   gap: 8px;
   overflow: hidden;
 }
@@ -679,74 +917,150 @@ const deleteStation = (stationId: number) => {
 
 .station-table {
   min-height: 0;
-  display: grid;
-  grid-template-rows: auto auto;
-  align-content: start;
-  gap: 6px;
-  overflow: hidden;
+  height: 100%;
+  overflow-x: auto;
+  overflow-y: auto;
   border-radius: 8px;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(115, 139, 171, 0.42) transparent;
+  padding-bottom: 0;
+}
+
+.station-table.is-vertical-scrolling {
+  scrollbar-color: rgba(115, 139, 171, 0.46) transparent;
+}
+
+.station-table::-webkit-scrollbar {
+  width: 0;
+  height: 8px;
+}
+
+.station-table.is-vertical-scrolling::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+.station-table::-webkit-scrollbar-track {
+  border-radius: 999px;
+  background: transparent;
+}
+
+.station-table.is-vertical-scrolling::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.station-table::-webkit-scrollbar-thumb {
+  border-radius: 999px;
+  background: rgba(115, 139, 171, 0.42);
+}
+
+.station-table.is-vertical-scrolling::-webkit-scrollbar-thumb {
+  background: rgba(115, 139, 171, 0.42);
+}
+
+.station-table.is-vertical-scrolling::-webkit-scrollbar-thumb:hover {
+  background: rgba(82, 111, 151, 0.58);
+}
+
+.table-content {
+  display: table;
+  width: max-content;
+  min-width: 100%;
+  border-collapse: separate;
+  border-spacing: 0 6px;
+}
+
+.station-table::-webkit-scrollbar-corner {
+  background: transparent;
 }
 
 .table-body {
-  min-height: 0;
-  max-height: 464px;
-  display: grid;
-  align-content: start;
-  gap: 6px;
-  overflow-y: auto;
-  overscroll-behavior: contain;
-  padding: 0;
-  scrollbar-width: none;
+  display: table-row-group;
 }
 
-.table-body::-webkit-scrollbar {
-  display: none;
-}
 
 .table-row {
+  display: table-row;
   min-height: 48px;
-  border: 1px solid rgba(224, 232, 243, 0.85);
-  border-radius: 8px;
-  background: #ffffff;
-  display: grid;
-  grid-template-columns: minmax(280px, 1.7fr) minmax(130px, 0.9fr) minmax(110px, 0.75fr) minmax(110px, 0.7fr) minmax(110px, 0.7fr) 96px;
-  align-items: center;
-  gap: 12px;
-  padding: 6px 10px;
   font-size: 14px;
 }
 
+.table-row > * {
+  display: table-cell;
+  height: 48px;
+  padding: 0 20px;
+  border-top: 1px solid rgba(224, 232, 243, 0.85);
+  border-bottom: 1px solid rgba(224, 232, 243, 0.85);
+  background: #ffffff;
+  vertical-align: middle;
+  white-space: nowrap;
+}
+
+.table-row > * + * {
+  padding-left: 20px;
+}
+
+.table-row > *:first-child {
+  border-left: 1px solid rgba(224, 232, 243, 0.85);
+  border-radius: 8px 0 0 8px;
+}
+
+.table-row > *:last-child {
+  position: sticky;
+  right: 0;
+  z-index: 2;
+  border-right: 1px solid rgba(224, 232, 243, 0.85);
+  border-radius: 0 8px 8px 0;
+  padding-right: 12px;
+  padding-left: 12px;
+  background:
+    linear-gradient(90deg, rgba(255, 255, 255, 0.76), #ffffff 18px),
+    #ffffff;
+  box-shadow: -12px 0 18px rgba(255, 255, 255, 0.88);
+}
+
 .table-head {
-  min-height: 32px;
+  position: sticky;
+  top: 0;
+  z-index: 2;
   color: #70839f;
-  background: #f5f8fd;
   font-size: 12px;
   font-weight: 700;
 }
 
+.table-head > * {
+  height: 32px;
+  background: #f5f8fd;
+}
+
 .table-head span:last-child {
+  z-index: 3;
+  background:
+    linear-gradient(90deg, rgba(245, 248, 253, 0.72), #f5f8fd 18px),
+    #f5f8fd;
   text-align: center;
 }
 
 .station-name {
-  min-width: 0;
+  white-space: nowrap;
+}
+
+.cell-text {
+  white-space: nowrap;
 }
 
 .station-link {
   max-width: 100%;
   border: 0;
   background: transparent;
-  color: #182438;
+  color: inherit;
   padding: 0;
   font: inherit;
-  color: #182438;
-  font-size: 15px;
-  font-weight: 800;
+  font-size: inherit;
+  font-weight: inherit;
   line-height: 1.2;
   text-align: left;
   cursor: pointer;
-  overflow: hidden;
-  text-overflow: ellipsis;
   white-space: nowrap;
 }
 
@@ -758,12 +1072,24 @@ const deleteStation = (stationId: number) => {
   outline: none;
 }
 
+.status-cell {
+  text-align: center;
+}
+
 .status-pill {
+  display: inline-flex;
   width: max-content;
+  max-width: 100%;
+  height: auto;
+  min-height: 0;
+  align-items: center;
+  justify-content: center;
   border-radius: 999px;
   padding: 4px 9px;
   font-size: 11px;
   font-weight: 700;
+  line-height: 1.2;
+  white-space: nowrap;
 }
 
 .status-pill.运行中 {
@@ -771,31 +1097,40 @@ const deleteStation = (stationId: number) => {
   background: #e9f8f1;
 }
 
-.status-pill.维护中 {
-  color: #c07900;
-  background: #fff5df;
+
+.status-pill.处理中 {
+  color: #1d5fd1;
+  background: #eaf3ff;
 }
 
-.status-pill.离线 {
-  color: #9b4050;
-  background: #fff0f2;
+.status-pill.已停运 {
+  color: #6b7280;
+  background: #eef1f5;
 }
+
 
 .row-actions {
-  display: flex;
-  justify-content: center;
-  gap: 10px;
+  display: table-cell;
+  min-width: 76px;
+  text-align: center;
+  vertical-align: middle;
+  white-space: nowrap;
+}
+
+.row-actions button + button {
+  margin-left: 6px;
 }
 
 .row-actions button,
 .ghost-icon {
-  width: 30px;
-  height: 30px;
+  width: 28px;
+  height: 28px;
   border: 0;
   border-radius: 8px;
   background: #ffffff;
   color: #0b0f18;
   display: inline-flex;
+  vertical-align: middle;
   align-items: center;
   justify-content: center;
   cursor: pointer;
@@ -869,7 +1204,7 @@ const deleteStation = (stationId: number) => {
 }
 
 .detail-panel {
-  width: min(760px, 100%);
+  width: min(720px, 100%);
 }
 
 .station-detail-scroll {
@@ -926,7 +1261,7 @@ const deleteStation = (stationId: number) => {
 .detail-hero strong {
   min-width: 0;
   color: #111827;
-  font-size: 20px;
+  font-size: 18px;
   line-height: 1.1;
 }
 
@@ -972,6 +1307,7 @@ const deleteStation = (stationId: number) => {
 
 .station-form {
   display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 12px;
 }
 
@@ -983,6 +1319,11 @@ const deleteStation = (stationId: number) => {
   font-weight: 700;
 }
 
+.station-form label:nth-last-child(2),
+.station-form .save-button {
+  grid-column: 1 / -1;
+}
+
 .station-form input,
 .station-form select {
   border: 1px solid #dbe5f2;
@@ -992,6 +1333,38 @@ const deleteStation = (stationId: number) => {
   font: inherit;
   height: 38px;
   padding: 0 11px;
+}
+
+.srt-import-field {
+  display: flex;
+  align-items: end;
+}
+
+.srt-import-button {
+  width: 100%;
+  height: 38px;
+  border: 1px dashed #9ec5ff;
+  border-radius: 12px;
+  background: rgba(239, 247, 255, 0.84);
+  color: #1f66ed;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 800;
+  cursor: pointer;
+  transition:
+    border-color 0.16s ease,
+    background-color 0.16s ease,
+    color 0.16s ease;
+}
+
+.srt-import-button:hover {
+  border-color: #5c9cff;
+  background: rgba(227, 240, 255, 0.98);
+  color: #174fc0;
+}
+
+.srt-file-input {
+  display: none;
 }
 
 .save-button {
@@ -1009,8 +1382,43 @@ const deleteStation = (stationId: number) => {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
+  .station-table {
+    overflow-x: hidden;
+  }
+
+  .table-content {
+    display: block;
+    width: 100%;
+    min-width: 0;
+    border-spacing: 0;
+  }
+
   .table-row {
+    display: grid;
+    width: 100%;
+    min-width: 0;
     grid-template-columns: 1fr;
+  }
+
+  .table-row > * {
+    position: static;
+    display: block;
+    height: auto;
+    border: 0;
+    border-bottom: 1px solid rgba(224, 232, 243, 0.72);
+    border-radius: 0;
+    padding: 8px 10px;
+    box-shadow: none;
+  }
+
+  .status-cell {
+    text-align: left;
+  }
+
+  .table-body {
+    display: grid;
+    width: 100%;
+    min-width: 0;
   }
 
   .table-head {
@@ -1034,6 +1442,19 @@ const deleteStation = (stationId: number) => {
   .detail-hero,
   .detail-grid {
     grid-template-columns: 1fr;
+  }
+
+  .station-form {
+    grid-template-columns: 1fr;
+  }
+
+  .station-form label:nth-last-child(2),
+  .station-form .save-button {
+    grid-column: auto;
+  }
+
+  .srt-import-field {
+    align-items: stretch;
   }
 }
 </style>

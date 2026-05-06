@@ -47,7 +47,7 @@ export const videoCards: VideoCard[] = [
 export const metricCards: MetricCard[] = [
   { id: "abnormal-module", title: "异常热斑组件数", value: "02", helper: "总检一线，特别归纳协调", icon: "station" },
   { id: "duration", title: "检测时长", value: "102", helper: "总检一线，待机归纳确认", icon: "clock" },
-  { id: "hotspot-ratio", title: "检测进度", value: "32", helper: "总检一线，获取已冷却，站点", icon: "info" },
+  { id: "hotspot-ratio", title: "检测进度", value: "32%", helper: "总检一线，获取已冷却，站点", icon: "info" },
 ];
 
 export const detectionMetrics: DetectionMetric[] = [

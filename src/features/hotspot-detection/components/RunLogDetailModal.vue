@@ -5,30 +5,44 @@
         <header>
           <div>
             <span>检测记录</span>
-            <strong>热斑检测完整记录</strong>
+            <strong>检测任务记录详情</strong>
           </div>
           <button type="button" aria-label="关闭检测记录" @click="emit('close')">
             <BaseIcon name="x" :size="16" />
           </button>
         </header>
 
-        <div class="modal-table" role="table" aria-label="热斑检测完整检测记录">
+        <div class="modal-table" role="table" aria-label="检测任务记录详情">
           <div class="modal-row modal-head" role="row">
-            <span role="columnheader">检测任务</span>
-            <span role="columnheader">检测开始</span>
-            <span role="columnheader">检测结束</span>
-            <span role="columnheader">热斑组件位置</span>
-            <span role="columnheader">热斑数量</span>
+            <span role="columnheader">公司名称</span>
+            <span role="columnheader">电站名称</span>
+            <span role="columnheader">屋顶名称</span>
+            <span role="columnheader">检测开始时间</span>
+            <span role="columnheader">检测结束时间</span>
+            <span role="columnheader">检测状态</span>
+            <span role="columnheader">异常组件数</span>
+            <span role="columnheader">是否归档</span>
           </div>
           <div class="modal-body">
             <div v-for="logItem in logs" :key="logItem.id" class="modal-row" role="row">
-              <span role="cell">{{ logItem.taskName }}</span>
-              <span role="cell">{{ logItem.startTime }}</span>
-              <span role="cell">{{ logItem.endTime ?? "检测中" }}</span>
-              <span role="cell" class="position-cell">{{ positionText(logItem.hotspotPositions) }}</span>
+              <span role="cell" class="text-cell">{{ extraText(logItem, "companyName", "未记录") }}</span>
+              <span role="cell" class="text-cell">{{ logItem.stationName || "未记录" }}</span>
+              <span role="cell" class="text-cell">{{ logItem.taskName || "未记录" }}</span>
+              <span role="cell">{{ logItem.startTime || "未记录" }}</span>
+              <span role="cell">{{ finishTimeText(logItem) }}</span>
+              <span role="cell">
+                <strong class="task-status" :class="taskStatusClass(logItem)">
+                  {{ taskStatusText(logItem) }}
+                </strong>
+              </span>
               <span role="cell">
                 <strong class="hotspot-status" :class="countClass(logItem.abnormalCount)">
                   {{ countText(logItem.abnormalCount) }}
+                </strong>
+              </span>
+              <span role="cell">
+                <strong class="archive-status" :class="archiveClass(logItem)">
+                  {{ archiveText(logItem) }}
                 </strong>
               </span>
             </div>
@@ -58,16 +72,42 @@ const emit = defineEmits<{
   close: [];
 }>();
 
-const positionText = (hotspotPositions: string[] | null) => {
-  if (hotspotPositions === null) {
-    return "识别中";
+
+type ExtendedRunLogItem = RunLogItem & {
+  companyName?: string | null;
+  isSavedToHotspotManagement?: boolean | null;
+  taskStatus?: string | null;
+};
+
+const extraText = (logItem: RunLogItem, key: "companyName", fallback: string) => {
+  const value = (logItem as ExtendedRunLogItem)[key];
+  return value || fallback;
+};
+
+const finishTimeText = (logItem: RunLogItem) => {
+  return logItem.endTime || "未记录";
+};
+
+const taskStatusText = (logItem: RunLogItem) => {
+  return (logItem as ExtendedRunLogItem).taskStatus || "检测中";
+};
+
+const taskStatusClass = (logItem: RunLogItem) => {
+  const taskStatus = taskStatusText(logItem);
+
+  if (taskStatus === "检测完毕") {
+    return "finished";
   }
 
-  if (hotspotPositions.length === 0) {
-    return "未发现热斑组件";
+  if (taskStatus === "检测中断") {
+    return "interrupted";
   }
 
-  return hotspotPositions.join("、");
+  if (taskStatus === "检测失败") {
+    return "failed";
+  }
+
+  return "running";
 };
 
 const countText = (abnormalCount: number | null) => {
@@ -85,6 +125,14 @@ const countClass = (abnormalCount: number | null) => {
 
   return abnormalCount > 0 ? "danger" : "normal";
 };
+
+const archiveText = (logItem: RunLogItem) => {
+  return (logItem as ExtendedRunLogItem).isSavedToHotspotManagement ? "已归档" : "未归档";
+};
+
+const archiveClass = (logItem: RunLogItem) => {
+  return (logItem as ExtendedRunLogItem).isSavedToHotspotManagement ? "saved" : "unsaved";
+};
 </script>
 
 <style scoped>
@@ -99,7 +147,7 @@ const countClass = (abnormalCount: number | null) => {
 }
 
 .run-log-modal {
-  width: min(1240px, calc(100vw - 64px));
+  width: min(1320px, calc(100vw - 64px));
   height: min(640px, calc(100vh - 96px));
   min-height: 0;
   border: 1px solid rgba(216, 226, 241, 0.96);
@@ -174,11 +222,14 @@ header button {
   background: #f7faff;
   display: grid;
   grid-template-columns:
-    minmax(150px, 0.9fr)
-    minmax(150px, 0.9fr)
-    minmax(150px, 0.9fr)
-    minmax(220px, 1.3fr)
-    minmax(100px, 0.6fr);
+    minmax(140px, 1fr)
+    minmax(130px, 0.9fr)
+    minmax(120px, 0.82fr)
+    minmax(145px, 0.9fr)
+    minmax(145px, 0.9fr)
+    minmax(86px, 0.58fr)
+    minmax(92px, 0.56fr)
+    minmax(82px, 0.52fr);
   align-items: center;
   gap: 10px;
   padding: 9px 12px;
@@ -191,15 +242,19 @@ header button {
   color: #7d8da5;
 }
 
-.position-cell {
-  color: #d75a18;
-  line-height: 1.4;
-  overflow-wrap: anywhere;
+.text-cell {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
-.hotspot-status {
+
+.hotspot-status,
+.archive-status,
+.task-status {
   width: fit-content;
-  min-width: 44px;
+  min-width: 48px;
   border-radius: 999px;
   display: inline-flex;
   justify-content: center;
@@ -219,5 +274,35 @@ header button {
 .hotspot-status.pending {
   color: #9a6a12;
   background: rgba(247, 169, 40, 0.14);
+}
+
+.archive-status.saved {
+  color: #246fd4;
+  background: rgba(36, 111, 212, 0.12);
+}
+
+.archive-status.unsaved {
+  color: #8a6470;
+  background: rgba(138, 100, 112, 0.12);
+}
+
+.task-status.finished {
+  color: #16835f;
+  background: rgba(41, 190, 128, 0.12);
+}
+
+.task-status.running {
+  color: #246fd4;
+  background: rgba(36, 111, 212, 0.12);
+}
+
+.task-status.interrupted {
+  color: #9a6a12;
+  background: rgba(247, 169, 40, 0.14);
+}
+
+.task-status.failed {
+  color: #d72d45;
+  background: rgba(255, 91, 110, 0.12);
 }
 </style>

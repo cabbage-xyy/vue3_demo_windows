@@ -44,24 +44,77 @@
         </div>
 
         <div v-if="showHeaderControls" class="filter-cluster" aria-label="任务筛选">
-          <button
-            v-for="filter in headerFilters"
-            :key="filter.id"
-            type="button"
-            class="filter-chip"
-            :class="{ 'is-selected': filter.selected }"
-          >
-            <span>{{ filter.label }}</span>
-            <BaseIcon name="chevron-down" :size="15" :stroke-width="2.4" />
-          </button>
+          <template v-for="filter in headerFilters" :key="filter.id">
+            <select
+              v-if="filter.id === 'company'"
+              v-model="selectedCompanyName"
+              class="filter-chip filter-select filter-select--company"
+              aria-label="公司名称"
+              @change="handleCompanyChange"
+            >
+              <option value="">公司名称</option>
+              <option
+                v-for="company in companyOptions"
+                :key="company.name"
+                :value="company.name"
+              >
+                {{ company.name }}
+              </option>
+            </select>
+
+            <select
+              v-else-if="filter.id === 'station'"
+              v-model="selectedStationName"
+              class="filter-chip filter-select filter-select--station"
+              aria-label="电站名称"
+              :disabled="!selectedCompanyName"
+              @change="handleStationChange"
+            >
+              <option value="">电站名称</option>
+              <option
+                v-for="station in stationOptions"
+                :key="station.name"
+                :value="station.name"
+              >
+                {{ station.name }}
+              </option>
+            </select>
+
+            <select
+              v-else-if="filter.id === 'roof'"
+              v-model="selectedRoofName"
+              class="filter-chip filter-select filter-select--roof"
+              aria-label="屋顶名称"
+              :disabled="!selectedCompanyName || !selectedStationName"
+              @change="handleRoofChange"
+            >
+              <option value="">屋顶名称</option>
+              <option
+                v-for="roof in roofOptions"
+                :key="roof.name"
+                :value="roof.name"
+              >
+                {{ roof.name }}
+              </option>
+            </select>
+
+            <button
+              v-else
+              type="button"
+              class="filter-chip"
+              :class="{ 'is-selected': filter.selected }"
+            >
+              <span>{{ filter.label }}</span>
+              <BaseIcon name="chevron-down" :size="15" :stroke-width="2.4" />
+            </button>
+          </template>
         </div>
       </div>
 
       <div v-if="showHeaderControls" class="header-right">
-        <button type="button" class="status-selector">
-          <span>未开始/检测中/检测完成</span>
-          <BaseIcon name="chevron-down" :size="16" :stroke-width="2.4" />
-        </button>
+        <div class="status-display" role="status" aria-live="polite">
+          <span>{{ processStatusText }}</span>
+        </div>
       </div>
     </header>
 
@@ -72,7 +125,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed } from "vue";
+import { computed, onBeforeUnmount, onMounted, ref } from "vue";
 import { RouterLink, RouterView, useRoute } from "vue-router";
 import { appNavigationItems } from "@/app/navigation";
 import BaseIcon from "@/components/base/BaseIcon.vue";
@@ -90,8 +143,166 @@ const headerFilters = [
   { id: "roof", label: "屋顶名称", selected: false },
 ];
 
+interface CompanyOption {
+  name: string;
+}
+
+interface StationOption {
+  name: string;
+}
+
+interface RoofOption {
+  name: string;
+}
+
+interface StationRecord {
+  companyName: string;
+  stationName: string;
+  roofName: string;
+}
+
+const stationRecords = ref<StationRecord[]>([]);
+const companyOptions = ref<CompanyOption[]>([]);
+const stationOptions = ref<StationOption[]>([]);
+const roofOptions = ref<RoofOption[]>([]);
+const selectedCompanyName = ref("");
+const selectedStationName = ref("");
+const selectedRoofName = ref("");
+
+
+const toUniqueNameOptions = (names: string[]) => {
+  return Array.from(new Set(names.map((name) => name.trim()).filter(Boolean))).map((name) => ({ name }));
+};
+
+const rebuildCompanyOptions = () => {
+  companyOptions.value = toUniqueNameOptions(
+    stationRecords.value.map((item) => item.companyName),
+  );
+};
+
+const rebuildStationOptions = () => {
+  if (!selectedCompanyName.value) {
+    stationOptions.value = [];
+    return;
+  }
+
+  stationOptions.value = toUniqueNameOptions(
+    stationRecords.value
+      .filter((item) => item.companyName === selectedCompanyName.value)
+      .map((item) => item.stationName),
+  );
+};
+
+const rebuildRoofOptions = () => {
+  if (!selectedCompanyName.value || !selectedStationName.value) {
+    roofOptions.value = [];
+    return;
+  }
+
+  roofOptions.value = toUniqueNameOptions(
+    stationRecords.value
+      .filter(
+        (item) =>
+          item.companyName === selectedCompanyName.value &&
+          item.stationName === selectedStationName.value,
+      )
+      .map((item) => item.roofName),
+  );
+};
+
+const fetchStationRecords = async () => {
+  try {
+    const response = await fetch("http://127.0.0.1:8000/station-management/stations");
+
+    if (!response.ok) {
+      console.error("获取电站管理列表失败：", response.status, response.statusText);
+      stationRecords.value = [];
+      companyOptions.value = [];
+      stationOptions.value = [];
+      roofOptions.value = [];
+      return;
+    }
+
+    const result = await response.json();
+    const data = Array.isArray(result.data) ? result.data : [];
+
+    stationRecords.value = data
+      .map((item: Record<string, unknown>) => {
+        const raw = item.raw && typeof item.raw === "object"
+          ? (item.raw as Record<string, unknown>)
+          : {};
+
+        return {
+          companyName: String(item.companyName || item.company_name || raw.name || "").trim(),
+          stationName: String(item.stationName || item.station_name || raw.station_name || "").trim(),
+          roofName: String(item.roofName || item.roof_name || raw.roof_name || "").trim(),
+        };
+      })
+      .filter((item: StationRecord) => item.companyName && item.stationName && item.roofName);
+
+    rebuildCompanyOptions();
+    rebuildStationOptions();
+    rebuildRoofOptions();
+  } catch (error) {
+    console.error("获取电站管理列表接口调用失败：", error);
+    stationRecords.value = [];
+    companyOptions.value = [];
+    stationOptions.value = [];
+    roofOptions.value = [];
+  }
+};
+
+const handleCompanyChange = () => {
+  selectedStationName.value = "";
+  selectedRoofName.value = "";
+  stationOptions.value = [];
+  roofOptions.value = [];
+
+  localStorage.setItem("selectedCompanyName", selectedCompanyName.value);
+  localStorage.removeItem("selectedStationName");
+  localStorage.removeItem("selectedRoofName");
+
+  console.log("当前选择公司：", selectedCompanyName.value);
+  rebuildStationOptions();
+};
+
+const handleStationChange = () => {
+  selectedRoofName.value = "";
+  roofOptions.value = [];
+
+  localStorage.setItem("selectedStationName", selectedStationName.value);
+  localStorage.removeItem("selectedRoofName");
+
+  console.log("当前选择电站：", selectedStationName.value);
+  rebuildRoofOptions();
+};
+
+const handleRoofChange = () => {
+  localStorage.setItem("selectedRoofName", selectedRoofName.value);
+  console.log("当前选择屋顶：", selectedRoofName.value);
+};
+
 const pageTitle = computed(() => (typeof route.meta.title === "string" ? route.meta.title : "热斑检测"));
 const showHeaderControls = computed(() => route.name === routeNames.hotspotDetection);
+
+const processStatusText = ref("未处理");
+
+const syncProcessStatusText = () => {
+  processStatusText.value = localStorage.getItem("hotspotProcessStatus") || "未处理";
+};
+
+onMounted(() => {
+  syncProcessStatusText();
+  selectedCompanyName.value = localStorage.getItem("selectedCompanyName") || "";
+  selectedStationName.value = localStorage.getItem("selectedStationName") || "";
+  selectedRoofName.value = localStorage.getItem("selectedRoofName") || "";
+  void fetchStationRecords();
+  window.addEventListener("hotspot-process-status-change", syncProcessStatusText);
+});
+
+onBeforeUnmount(() => {
+  window.removeEventListener("hotspot-process-status-change", syncProcessStatusText);
+});
 </script>
 
 <style scoped>
@@ -278,7 +489,7 @@ const showHeaderControls = computed(() => route.name === routeNames.hotspotDetec
 }
 
 .filter-chip,
-.status-selector,
+.status-display,
 .progress-chip,
 .score-chip {
   height: 43px;
@@ -298,15 +509,46 @@ const showHeaderControls = computed(() => route.name === routeNames.hotspotDetec
 
 .filter-chip {
   min-width: 0;
-  width: 172px;
-  flex: 0 0 172px;
-  padding: 0 14px 0 18px;
+  flex: 0 0 auto;
+  padding: 0 34px 0 18px;
   justify-content: space-between;
   box-shadow: 0 7px 18px rgba(56, 84, 120, 0.04);
 }
 
+.filter-select {
+  appearance: none;
+  -webkit-appearance: none;
+  text-align: left;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  background-image: linear-gradient(45deg, transparent 50%, #172033 50%),
+    linear-gradient(135deg, #172033 50%, transparent 50%);
+  background-position:
+    calc(100% - 19px) 18px,
+    calc(100% - 13px) 18px;
+  background-size: 6px 6px, 6px 6px;
+  background-repeat: no-repeat;
+}
+
+.filter-select--company {
+  width: 292px;
+  flex-basis: 292px;
+}
+
+.filter-select--station,
+.filter-select--roof {
+  width: 164px;
+  flex-basis: 164px;
+}
+
+.filter-select:disabled {
+  color: #8b96a8;
+  cursor: not-allowed;
+  background-color: #f5f7fa;
+}
+
 .filter-chip span:first-child,
-.status-selector span {
+.status-display span {
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -320,13 +562,14 @@ const showHeaderControls = computed(() => route.name === routeNames.hotspotDetec
   gap: 18px;
 }
 
-.status-selector {
+.status-display {
   width: min(278px, 100%);
   min-width: 0;
   border-color: transparent;
   background: transparent;
   font-weight: 600;
   justify-content: flex-end;
+  cursor: default;
 }
 
 .header-divider {
@@ -388,8 +631,7 @@ const showHeaderControls = computed(() => route.name === routeNames.hotspotDetec
   }
 
   .filter-chip {
-    width: 156px;
-    flex-basis: 156px;
+    min-width: 0;
   }
 }
 
@@ -411,7 +653,7 @@ const showHeaderControls = computed(() => route.name === routeNames.hotspotDetec
     flex-wrap: wrap;
   }
 
-  .status-selector {
+  .status-display {
     justify-content: flex-start;
   }
 }
@@ -457,11 +699,18 @@ const showHeaderControls = computed(() => route.name === routeNames.hotspotDetec
   }
 
   .filter-chip,
-  .status-selector,
+  .status-display,
   .progress-chip,
   .score-chip {
     min-width: 0;
     width: 100%;
+    max-width: none;
+  }
+
+  .filter-select--company,
+  .filter-select--station,
+  .filter-select--roof {
+    flex-basis: 100%;
   }
 
   .app-content {

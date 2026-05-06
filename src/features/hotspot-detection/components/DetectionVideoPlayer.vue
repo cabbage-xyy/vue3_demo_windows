@@ -1,11 +1,11 @@
 <template>
-  <article class="video-card">
+  <article class="video-card" :class="{ 'result-image-card': isResultImageSequence }">
     <h2>{{ video.title }}</h2>
 
     <div class="player-shell">
       <div class="media-frame">
         <video
-          v-if="mediaUrl"
+          v-if="mediaUrl && !isResultImageSequence"
           ref="videoRef"
           class="video-media"
           :src="mediaUrl"
@@ -17,7 +17,7 @@
           @ended="handleVideoEnded"
           @click="togglePlay"
         ></video>
-        <img v-else class="video-media" :src="video.imageUrl" :alt="video.title" />
+        <img v-else class="video-media" :src="previewImageUrl" :alt="video.title" />
 
         <div v-if="showResultOverlay" class="hotspot-layer" aria-hidden="true">
           <span class="hotspot-marker marker-primary"></span>
@@ -25,6 +25,7 @@
         </div>
 
         <button
+          v-if="!isResultImageSequence"
           v-show="!isPlaying"
           type="button"
           class="center-play"
@@ -35,7 +36,7 @@
         </button>
       </div>
 
-      <footer class="player-controls">
+      <footer v-if="!isResultImageSequence" class="player-controls">
         <div class="timeline-row">
           <button type="button" class="inline-play-button" :aria-label="`${isPlaying ? '暂停' : '播放'}${video.title}`" @click="togglePlay">
             <BaseIcon :name="isPlaying ? 'pause' : 'play'" :size="17" :stroke-width="2.8" />
@@ -61,7 +62,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, ref, watch } from "vue";
+import { computed, nextTick, onMounted, ref, watch } from "vue";
 import BaseIcon from "@/components/base/BaseIcon.vue";
 import type { VideoCard } from "@/features/hotspot-detection/types/dashboard";
 
@@ -107,6 +108,14 @@ const clampedProgress = computed(() => Math.max(0, Math.min(100, realVideoProgre
 const progressStyle = computed(() => ({ width: `${clampedProgress.value}%` }));
 const knobStyle = computed(() => ({ left: `${clampedProgress.value}%` }));
 const showResultOverlay = computed(() => props.video.id === "result-video");
+const isResultImageSequence = computed(() => props.video.id === "result-video");
+const previewImageUrl = computed(() => {
+  if (isResultImageSequence.value && props.mediaUrl) {
+    return props.mediaUrl;
+  }
+
+  return props.video.imageUrl;
+});
 const displayTime = computed(() => {
   if (!props.mediaUrl || duration.value <= 0) {
     return props.video.duration;
@@ -122,6 +131,8 @@ const handleLoadedMetadata = () => {
 
   duration.value = videoRef.value.duration;
   currentTime.value = videoRef.value.currentTime;
+
+  void autoPlaySourceVideo();
 };
 
 const handleTimeUpdate = () => {
@@ -135,6 +146,27 @@ const handleTimeUpdate = () => {
 const handleVideoEnded = () => {
   isPlaying.value = false;
   currentTime.value = duration.value;
+};
+
+const autoPlaySourceVideo = async () => {
+  if (props.video.id !== "source-video" || !props.mediaUrl || !videoRef.value) {
+    return;
+  }
+
+  try {
+    videoRef.value.muted = true;
+    videoRef.value.playsInline = true;
+
+    if (videoRef.value.readyState === 0) {
+      videoRef.value.load();
+    }
+
+    await videoRef.value.play();
+    isPlaying.value = true;
+  } catch (error) {
+    isPlaying.value = false;
+    console.warn("原始视频自动播放失败，需要用户手动点击播放：", error);
+  }
 };
 
 const togglePlay = async () => {
@@ -165,12 +197,24 @@ const seekByTimeline = (event: MouseEvent) => {
 
 watch(
   () => props.mediaUrl,
-  () => {
+  async () => {
     currentTime.value = 0;
     duration.value = 0;
     isPlaying.value = false;
+
+    await nextTick();
+    window.setTimeout(() => {
+      void autoPlaySourceVideo();
+    }, 80);
   },
+  { immediate: true },
 );
+
+onMounted(() => {
+  window.setTimeout(() => {
+    void autoPlaySourceVideo();
+  }, 120);
+});
 </script>
 
 <style scoped>
@@ -202,6 +246,13 @@ watch(
   align-self: start;
 }
 
+.result-image-card .player-shell {
+  grid-template-rows: auto;
+  border-color: #d9e3f3;
+  background: #f8fbff;
+  box-shadow: 0 10px 22px rgba(23, 38, 61, 0.1);
+}
+
 .player-controls {
   background: linear-gradient(180deg, #131b2b 0%, #101827 100%);
   color: #d8e2f0;
@@ -227,6 +278,10 @@ watch(
 
 video.video-media {
   cursor: pointer;
+}
+
+.result-image-card .video-media {
+  cursor: default;
 }
 
 .media-frame::after {
