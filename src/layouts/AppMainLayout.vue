@@ -441,10 +441,10 @@ onBeforeUnmount(() => {
   background: rgba(255, 255, 255, 0.96);
   box-shadow: 0 10px 30px rgba(55, 78, 110, 0.06);
   padding: 0 28px;
-  display: grid;
-  grid-template-columns: auto minmax(0, 1fr);
+  display: flex;
+  flex-wrap: nowrap;
   align-items: center;
-  gap: 20px;
+  gap: 16px;
   overflow: hidden;
 }
 
@@ -457,16 +457,18 @@ onBeforeUnmount(() => {
 }
 
 .header-left {
+  flex: 1 1 auto;
   overflow: hidden;
-  gap: 24px;
+  gap: 16px;
+  flex-wrap: nowrap;
 }
 
 .page-title {
-  min-width: 128px;
   display: inline-flex;
   align-items: center;
   gap: 12px;
   flex: 0 0 auto;
+  white-space: nowrap;
 }
 
 .page-title span {
@@ -483,9 +485,12 @@ onBeforeUnmount(() => {
 }
 
 .filter-cluster {
-  flex: 0 0 auto;
+  flex: 1 1 auto;
+  min-width: 0;
   overflow: hidden;
-  gap: 20px;
+  justify-content: center;
+  gap: 12px;
+  flex-wrap: nowrap;
 }
 
 .filter-chip,
@@ -531,14 +536,14 @@ onBeforeUnmount(() => {
 }
 
 .filter-select--company {
-  width: 292px;
-  flex-basis: 292px;
+  width: clamp(220px, 26vw, 330px);
+  flex: 0 1 clamp(220px, 26vw, 330px);
 }
 
 .filter-select--station,
 .filter-select--roof {
-  width: 164px;
-  flex-basis: 164px;
+  width: clamp(160px, 18vw, 230px);
+  flex: 0 1 clamp(160px, 18vw, 230px);
 }
 
 .filter-select:disabled {
@@ -556,19 +561,24 @@ onBeforeUnmount(() => {
 }
 
 .header-right {
-  min-width: 0;
-  overflow: hidden;
+  flex: 0 0 auto;
+  min-width: auto;
+  margin-left: auto;
+  overflow: visible;
   justify-content: flex-end;
   gap: 18px;
 }
 
 .status-display {
-  width: min(278px, 100%);
-  min-width: 0;
+  width: auto;
+  min-width: max-content;
+  flex: 0 0 auto;
   border-color: transparent;
   background: transparent;
   font-weight: 600;
   justify-content: flex-end;
+  white-space: nowrap;
+  text-align: right;
   cursor: default;
 }
 
@@ -633,28 +643,38 @@ onBeforeUnmount(() => {
   .filter-chip {
     min-width: 0;
   }
+
+  .app-header {
+    padding: 0 18px;
+    gap: 12px;
+  }
+
+  .header-left {
+    gap: 14px;
+  }
+
+  .filter-cluster {
+    gap: 10px;
+  }
 }
 
 @media (max-width: 1180px) {
   .app-header {
-    grid-template-columns: 1fr;
-    height: auto;
-    min-height: 76px;
-    padding: 14px 18px;
+    flex-wrap: nowrap;
+    padding: 0 18px;
   }
 
   .header-left,
   .header-right {
-    width: 100%;
     justify-content: flex-start;
   }
 
   .filter-cluster {
-    flex-wrap: wrap;
+    flex-wrap: nowrap;
   }
 
   .status-display {
-    justify-content: flex-start;
+    justify-content: flex-end;
   }
 }
 
@@ -687,8 +707,9 @@ onBeforeUnmount(() => {
   }
 
   .header-left,
-  .header-right {
-    flex-wrap: wrap;
+  .header-right,
+  .filter-cluster {
+    flex-wrap: nowrap;
   }
 }
 
