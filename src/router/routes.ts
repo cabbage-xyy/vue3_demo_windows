@@ -5,6 +5,7 @@ import HotspotManagementPage from "@/pages/HotspotManagementPage.vue";
 import StationManagementPage from "@/pages/StationManagementPage.vue";
 import { routeNames } from "@/router/route-names";
 
+// 页面级路由只连接 layout 与 page，具体业务组件继续放在对应 feature/page 内部。
 export const routes: RouteRecordRaw[] = [
   {
     path: "/",

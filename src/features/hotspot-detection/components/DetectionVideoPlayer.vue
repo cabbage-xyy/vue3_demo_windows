@@ -1,4 +1,5 @@
 <template>
+  <!-- 单个视频卡片：原始视频使用 video 控制，检测结果使用图片预览。 -->
   <article class="video-card" :class="{ 'result-image-card': isResultImageSequence }">
     <h2>{{ video.title }}</h2>
 
@@ -70,6 +71,7 @@ defineOptions({
   name: "DetectionVideoPlayer",
 });
 
+// 媒体 URL 可为空，此时回退到静态封面，避免未导入视频时出现空白卡片。
 interface DetectionVideoPlayerProps {
   video: VideoCard;
   mediaUrl?: string | null;
@@ -84,6 +86,7 @@ const currentTime = ref(0);
 const duration = ref(0);
 const isPlaying = ref(false);
 
+// 播放控制状态只在本卡片内维护，不向父组件暴露视频播放器细节。
 const formatTime = (seconds: number) => {
   if (!Number.isFinite(seconds) || seconds <= 0) {
     return "0:00";
@@ -124,6 +127,7 @@ const displayTime = computed(() => {
   return `${formatTime(currentTime.value)} / ${formatTime(duration.value)}`;
 });
 
+// 导入新视频后自动尝试播放，失败时保留用户手动播放入口。
 const handleLoadedMetadata = () => {
   if (!videoRef.value) {
     return;
@@ -218,6 +222,7 @@ onMounted(() => {
 </script>
 
 <style scoped>
+/* 视频卡片尺寸由父级网格控制，内部只负责播放器和时间轴。 */
 .video-card {
   min-width: 0;
   display: grid;

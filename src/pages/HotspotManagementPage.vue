@@ -1,5 +1,6 @@
 <template>
   <section class="hotspot-management-page">
+    <!-- 热斑记录概览：所有指标都从当前检测记录列表派生。 -->
     <section class="summary-grid" aria-label="热斑治理概览">
       <article v-for="item in summaryItems" :key="item.label" class="summary-card">
         <span>{{ item.label }}</span>
@@ -7,6 +8,7 @@
       </article>
     </section>
 
+    <!-- 检测记录台账：只处理搜索、状态筛选和记录操作入口。 -->
     <section class="workspace" aria-label="热斑检测记录台账">
       <div class="table-panel">
         <div class="toolbar">
@@ -77,6 +79,7 @@
       </div>
     </section>
 
+    <!-- 编辑弹窗：用于维护处理状态、报告状态和记录摘要，不创建新检测任务。 -->
     <div v-if="isFormOpen" class="form-overlay" @click.self="closeForm">
       <aside class="form-panel" aria-label="检测记录表单">
         <header>
@@ -143,6 +146,7 @@
       </aside>
     </div>
 
+    <!-- 详情弹窗：只读展示检测记录及报告入口。 -->
     <div v-if="selectedRecord" class="detail-overlay" @click.self="closeRecordDetail">
       <aside class="detail-panel" aria-label="检测记录详情">
         <header>
@@ -242,6 +246,8 @@ import BaseIcon from "@/components/base/BaseIcon.vue";
 defineOptions({
   name: "HotspotManagementPage",
 });
+
+// 处理状态和报告状态集中成字面量类型，避免表单/表格出现后端未定义状态。
 type HotspotStatus = "未处理" | "处理中" | "已处理";
 type ReportStatus = "未生成" | "已生成";
 
@@ -287,6 +293,7 @@ interface HotspotRecord {
 
 type HotspotForm = Omit<HotspotRecord, "id" | "companyId" | "roofId" | "createdAt" | "updatedAt">;
 
+// 表单默认值只服务编辑弹窗，检测记录本身仍来自后端台账。
 const createEmptyForm = (): HotspotForm => ({
   detectCode: "",
   companyName: "",
@@ -302,6 +309,7 @@ const createEmptyForm = (): HotspotForm => ({
   reportStatus: "已生成",
 });
 
+// 页面状态：检测记录、筛选条件、编辑弹窗和详情弹窗彼此独立。
 const inspectionRecords = ref<HotspotRecord[]>([]);
 const isLoadingRecords = ref(false);
 const searchKeyword = ref("");
@@ -311,6 +319,7 @@ const isFormOpen = ref(false);
 const selectedRecord = ref<HotspotRecord | null>(null);
 const recordForm = reactive<HotspotForm>(createEmptyForm());
 
+// 后端数据进入页面前统一归一化，保证 UI 展示字段有稳定兜底。
 const normalizeProcessStatus = (status: string | null | undefined): HotspotStatus => {
   if (status === "未处理" || status === "处理中" || status === "已处理") {
     return status;
@@ -365,6 +374,7 @@ const refreshRecordsFromApiRecords = (apiRecords: HotspotManagementApiRecord[]) 
   inspectionRecords.value = apiRecords.map((record, index) => normalizeHotspotRecord(record, index));
 };
 
+// 只读取热斑管理台账，不影响检测任务记录或后端数据库内容。
 const fetchHotspotRecords = async () => {
   isLoadingRecords.value = true;
 
@@ -386,6 +396,7 @@ const fetchHotspotRecords = async () => {
   }
 };
 
+// 搜索和概览卡片都从 inspectionRecords 派生，避免额外同步状态。
 const filteredRecords = computed(() => {
   const keyword = searchKeyword.value.toLowerCase();
 
@@ -420,6 +431,7 @@ const summaryItems = computed(() => {
   ];
 });
 
+// 编辑弹窗状态：打开时复制记录，关闭或保存后重置。
 const assignForm = (record: HotspotRecord | HotspotForm) => {
   recordForm.detectCode = record.detectCode;
   recordForm.companyName = record.companyName;
@@ -473,6 +485,7 @@ const closeForm = () => {
   resetForm();
 };
 
+// 编辑接口只更新当前记录的处理、报告和摘要字段。
 const saveRecord = async () => {
   if (editingRecordId.value === null) {
     return;
@@ -510,6 +523,7 @@ const saveRecord = async () => {
   }
 };
 
+// 删除后使用后端返回的最新列表刷新本页台账，并关闭相关弹窗。
 const deleteRecord = async (recordId: number) => {
   const confirmed = window.confirm("确认删除该热斑检测记录？");
 
@@ -562,6 +576,7 @@ onMounted(() => {
 </script>
 
 <style scoped>
+/* 页面骨架：顶部概览 + 记录台账，内部滚动由表格容器处理。 */
 .hotspot-management-page {
   height: 100%;
   min-height: 0;
@@ -571,6 +586,7 @@ onMounted(() => {
   overflow: hidden;
 }
 
+/* 共享卡片表面：与电站管理页保持一致的浅色工作台质感。 */
 .workspace,
 .summary-card {
   border: 1px solid rgba(224, 232, 243, 0.92);
@@ -643,6 +659,7 @@ onMounted(() => {
   line-height: 1;
 }
 
+/* 台账工具区：搜索和状态筛选只影响本页前端过滤。 */
 .workspace {
   min-height: 0;
   border-radius: 8px;
@@ -743,6 +760,7 @@ onMounted(() => {
   scrollbar-width: thin;
 }
 
+/* 检测记录表格：使用原生 table 语义，便于列标题和单元格对齐。 */
 .hotspot-table {
   width: max-content;
   min-width: 100%;
@@ -806,10 +824,10 @@ onMounted(() => {
   border-right: 1px solid rgba(224, 232, 243, 0.85);
   border-radius: 0 8px 8px 0;
   padding: 6px 12px;
-  background:
-    linear-gradient(90deg, rgba(255, 255, 255, 0.76), #ffffff 18px),
-    #ffffff;
-  box-shadow: -12px 0 18px rgba(255, 255, 255, 0.88);
+  background: #ffffff;
+  box-shadow:
+    -1px 0 0 rgba(224, 232, 243, 0.9),
+    -10px 0 16px rgba(255, 255, 255, 0.96);
 }
 
 .table-head {
@@ -820,17 +838,22 @@ onMounted(() => {
 }
 
 .table-head > th {
+  position: sticky;
+  top: 0;
+  z-index: 4;
   height: 32px;
   background: #f5f8fd;
   font: inherit;
 }
 
 .table-head th:last-child {
-  z-index: 3;
-  background:
-    linear-gradient(90deg, rgba(245, 248, 253, 0.72), #f5f8fd 18px),
-    #f5f8fd;
+  right: 0;
+  z-index: 6;
+  background: #f5f8fd;
   text-align: center;
+  box-shadow:
+    -1px 0 0 rgba(224, 232, 243, 0.9),
+    -10px 0 16px rgba(245, 248, 253, 0.96);
 }
 
 .record-code {

@@ -1,4 +1,5 @@
 <template>
+  <!-- 诊断信息面板：展示定位结论和关键指标，不触发检测流程副作用。 -->
   <aside class="diagnostic-panel" aria-label="热斑诊断信息">
     <header>
       <span>Diagnosis</span>
@@ -33,6 +34,7 @@ defineOptions({
   name: "DiagnosticInsightPanel",
 });
 
+// 诊断条目由父级提供，组件只负责卡片化展示。
 interface DiagnosticInsightPanelProps {
   insights: DiagnosticInsight[];
 }

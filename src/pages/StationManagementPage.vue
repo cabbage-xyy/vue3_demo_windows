@@ -1,5 +1,6 @@
 <template>
   <section class="station-page">
+    <!-- 页面概览卡片：只展示由当前电站列表派生出的汇总指标。 -->
     <section class="summary-grid" aria-label="电站概览">
       <article v-for="item in summaryItems" :key="item.label" class="summary-card">
         <span>{{ item.label }}</span>
@@ -7,6 +8,7 @@
       </article>
     </section>
 
+    <!-- 电站台账工作区：搜索、状态筛选、创建入口和横纵向表格滚动都集中在这里。 -->
     <section class="workspace">
       <div class="table-panel">
         <div class="toolbar">
@@ -33,10 +35,8 @@
         <div
           ref="stationTableRef"
           class="station-table"
-          :class="{ 'is-vertical-scrolling': isVerticalScrolling }"
           role="table"
           aria-label="电站列表"
-          @scroll="handleTableScroll"
           @wheel="handleTableWheel"
         >
           <div class="table-content">
@@ -94,11 +94,11 @@
       </div>
     </section>
 
+    <!-- 新增/编辑弹窗：表单状态复用同一份 stationForm，提交时由 formMode 决定接口动作。 -->
     <div v-if="isFormOpen" class="form-overlay" @click.self="closeForm">
       <aside class="form-panel" aria-label="电站表单">
         <header>
           <div>
-            <p class="eyebrow">{{ formMode === "create" ? "Create" : "Edit" }}</p>
             <h2>{{ formMode === "create" ? "新增电站" : "编辑电站" }}</h2>
           </div>
           <button type="button" class="ghost-icon" aria-label="关闭表单" @click="closeForm">
@@ -145,11 +145,11 @@
           </label>
           <label>
             经度
-            <input v-model.trim="stationForm.longitude" required type="text" />
+            <input v-model.trim="stationForm.longitude" required readonly type="text" />
           </label>
           <label>
             纬度
-            <input v-model.trim="stationForm.latitude" required type="text" />
+            <input v-model.trim="stationForm.latitude" required readonly type="text" />
           </label>
           <div class="srt-import-field">
             <button type="button" class="srt-import-button" @click="triggerSrtFileInput">
@@ -163,21 +163,24 @@
               @change="handleSrtFileChange"
             />
           </div>
-          <label>
-            运行状态
-            <select v-model="stationForm.status">
-              <option value="运行中">运行中</option>
-              <option value="处理中">处理中</option>
-              <option value="已停运">已停运</option>
-            </select>
-          </label>
-          <button type="submit" class="save-button">
-            {{ formMode === "create" ? "创建电站" : "保存修改" }}
-          </button>
+          <div class="form-footer-row">
+            <label class="status-form-field">
+              运行状态
+              <select v-model="stationForm.status">
+                <option value="运行中">运行中</option>
+                <option value="处理中">处理中</option>
+                <option value="已停运">已停运</option>
+              </select>
+            </label>
+            <button type="submit" class="save-button">
+              {{ formMode === "create" ? "创建电站" : "保存修改" }}
+            </button>
+          </div>
         </form>
       </aside>
     </div>
 
+    <!-- 电站详情弹窗：只读展示当前选中记录，避免和编辑表单状态互相污染。 -->
     <div v-if="selectedStation" class="detail-overlay" @click.self="closeStationDetail">
       <aside class="detail-panel station-detail-scroll" aria-label="电站详情">
         <header>
@@ -336,6 +339,7 @@ interface StationManagementApiRecord {
 type StationForm = Omit<StationRecord, "id">;
 type FormMode = "create" | "edit";
 
+// 表单默认值工厂：新增和关闭弹窗都从这里恢复，避免残留编辑记录字段。
 const createEmptyForm = (): StationForm => ({
   name: "",
   code: "",
@@ -359,6 +363,7 @@ const createEmptyForm = (): StationForm => ({
   originalRoofName: "",
 });
 
+// 页面状态：列表数据、筛选条件、弹窗状态和表格滚动状态分开维护。
 const stations = ref<StationRecord[]>([]);
 const isLoadingStations = ref(false);
 
@@ -371,10 +376,8 @@ const selectedStation = ref<StationRecord | null>(null);
 const stationForm = reactive<StationForm>(createEmptyForm());
 const stationTableRef = ref<HTMLElement | null>(null);
 const srtFileInputRef = ref<HTMLInputElement | null>(null);
-const isVerticalScrolling = ref(false);
-let lastTableScrollTop = 0;
-let verticalScrollbarTimer: ReturnType<typeof window.setTimeout> | null = null;
 
+// 后端可能返回不同状态文案，进入页面模型前统一收敛到业务允许值。
 const normalizeStationStatus = (status: string | null | undefined): StationStatus => {
   if (
     status === "运行中" ||
@@ -417,6 +420,7 @@ const normalizeStationRecord = (record: StationManagementApiRecord, index: numbe
   };
 };
 
+// 后端空值在列表里显示为“未填写”，表单保存时再按 payload 规则转回空/null。
 const formatNullableValue = (value: unknown) => {
   if (value === null || value === undefined || value === "") {
     return "未填写";
@@ -425,6 +429,7 @@ const formatNullableValue = (value: unknown) => {
   return String(value);
 };
 
+// 列表数据入口：所有接口返回先转成 StationRecord，再交给表格和统计卡片。
 const fetchStations = async () => {
   isLoadingStations.value = true;
 
@@ -453,6 +458,7 @@ const refreshStationsFromApiRecords = (apiRecords: StationManagementApiRecord[])
   );
 };
 
+// 保存 payload 只在这里组装，保证新增和编辑提交字段一致。
 const buildStationManagementPayload = () => ({
   company_name: stationForm.companyName,
   station_name: stationForm.name,
@@ -477,6 +483,7 @@ const triggerSrtFileInput = () => {
   srtFileInputRef.value?.click();
 };
 
+// SRT 经纬度解析：读取所有坐标后取平均值，写入只读经纬度字段。
 const extractAverageCoordinateFromSrt = (srtText: string) => {
   const latitudeMatches = [...srtText.matchAll(/\[latitude:\s*(-?\d+(?:\.\d+)?)\]/gi)];
   const longitudeMatches = [...srtText.matchAll(/\[longitude:\s*(-?\d+(?:\.\d+)?)\]/gi)];
@@ -490,8 +497,8 @@ const extractAverageCoordinateFromSrt = (srtText: string) => {
   let longitudeTotal = 0;
 
   for (let index = 0; index < coordinateCount; index += 1) {
-    latitudeTotal += Number(latitudeMatches[index][1]);
-    longitudeTotal += Number(longitudeMatches[index][1]);
+    latitudeTotal += Number(latitudeMatches[index]![1]!);
+    longitudeTotal += Number(longitudeMatches[index]![1]!);
   }
 
   return {
@@ -528,37 +535,18 @@ const handleSrtFileChange = async (event: Event) => {
   }
 };
 
-const showVerticalScrollbarTemporarily = () => {
-  isVerticalScrolling.value = true;
-
-  if (verticalScrollbarTimer) {
-    window.clearTimeout(verticalScrollbarTimer);
-  }
-
-  verticalScrollbarTimer = window.setTimeout(() => {
-    isVerticalScrolling.value = false;
-  }, 900);
-};
-
-const handleTableScroll = () => {
-  const tableElement = stationTableRef.value;
-
-  if (!tableElement) {
-    return;
-  }
-
-  if (tableElement.scrollTop !== lastTableScrollTop) {
-    lastTableScrollTop = tableElement.scrollTop;
-    showVerticalScrollbarTemporarily();
-  }
-};
-
 const handleTableWheel = (event: WheelEvent) => {
   if (Math.abs(event.deltaY) > Math.abs(event.deltaX)) {
-    showVerticalScrollbarTemporarily();
+    const tableElement = stationTableRef.value;
+
+    if (tableElement) {
+      event.preventDefault();
+      tableElement.scrollTop += event.deltaY;
+    }
   }
 };
 
+// 过滤和统计都从 stations 派生，避免维护第二份列表状态。
 const filteredStations = computed(() => {
   const keyword = searchKeyword.value.toLowerCase();
 
@@ -600,6 +588,7 @@ const summaryItems = computed(() => {
 });
 
 
+// 弹窗表单状态：打开编辑时复制记录，关闭/保存后回到新增默认值。
 const assignForm = (station: StationForm) => {
   stationForm.name = station.name;
   stationForm.code = station.code;
@@ -686,6 +675,7 @@ const saveStation = async () => {
   }
 };
 
+// 删除后同步刷新表格，并清理正在编辑的同一条记录状态。
 const deleteStation = async (stationId: number) => {
   const targetStation = stations.value.find((station) => station.id === stationId);
 
@@ -730,6 +720,7 @@ onMounted(() => {
 </script>
 
 <style scoped>
+/* 页面骨架：汇总卡片固定高度，表格工作区吃满剩余空间。 */
 .station-page {
   height: 100%;
   min-height: 0;
@@ -739,6 +730,7 @@ onMounted(() => {
   overflow: hidden;
 }
 
+/* 共享卡片表面：页面主卡片和概览卡片共用同一套轻玻璃质感。 */
 .workspace,
 .summary-card {
   border: 1px solid rgba(224, 232, 243, 0.92);
@@ -775,14 +767,60 @@ onMounted(() => {
 
 .primary-command {
   height: 40px;
-  padding: 0 15px;
+  padding: 0 16px;
+  border: 1px solid rgba(65, 145, 255, 0.78);
+  border-radius: 16px;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.34), rgba(255, 255, 255, 0) 46%),
+    linear-gradient(135deg, #59adff 0%, #287ef4 52%, #155ed6 100%);
+  color: #ffffff;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.42),
+    inset 0 -1px 0 rgba(12, 73, 170, 0.22),
+    0 12px 24px rgba(35, 105, 239, 0.28),
+    0 3px 8px rgba(15, 23, 42, 0.10);
   display: inline-flex;
   align-items: center;
   justify-content: center;
   gap: 8px;
   white-space: nowrap;
+  transform: translateY(0);
+  transition:
+    transform 0.16s ease,
+    box-shadow 0.16s ease,
+    filter 0.16s ease,
+    border-color 0.16s ease;
 }
 
+.primary-command:hover {
+  filter: brightness(1.04);
+  transform: translateY(0);
+  border-color: rgba(92, 165, 255, 0.92);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.48),
+    inset 0 -1px 0 rgba(12, 73, 170, 0.22),
+    0 14px 26px rgba(35, 105, 239, 0.30),
+    0 3px 8px rgba(15, 23, 42, 0.10);
+}
+
+.primary-command:active {
+  filter: brightness(0.98);
+  transform: translateY(0);
+  box-shadow:
+    inset 0 1px 2px rgba(12, 73, 170, 0.22),
+    0 8px 16px rgba(35, 105, 239, 0.22),
+    0 2px 5px rgba(15, 23, 42, 0.08);
+}
+
+.primary-command:focus-visible {
+  outline: none;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.42),
+    0 0 0 3px rgba(47, 130, 255, 0.18),
+    0 12px 24px rgba(35, 105, 239, 0.28);
+}
+
+/* 概览区：只承载列表派生指标，避免和表格筛选状态耦合。 */
 .summary-grid {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
@@ -811,6 +849,7 @@ onMounted(() => {
   line-height: 1;
 }
 
+/* 表格工作区：toolbar + 可横向/纵向滚动的数据表。 */
 .workspace {
   min-height: 0;
   border-radius: 8px;
@@ -919,33 +958,28 @@ onMounted(() => {
   min-height: 0;
   height: 100%;
   overflow-x: auto;
-  overflow-y: auto;
+  overflow-y: hidden;
   border-radius: 8px;
-  scrollbar-width: thin;
+  scrollbar-width: auto;
   scrollbar-color: rgba(115, 139, 171, 0.42) transparent;
   padding-bottom: 0;
 }
 
-.station-table.is-vertical-scrolling {
-  scrollbar-color: rgba(115, 139, 171, 0.46) transparent;
-}
-
 .station-table::-webkit-scrollbar {
-  width: 0;
   height: 8px;
 }
 
-.station-table.is-vertical-scrolling::-webkit-scrollbar {
-  width: 8px;
+.station-table::-webkit-scrollbar:horizontal {
   height: 8px;
+}
+
+.station-table::-webkit-scrollbar:vertical {
+  width: 0;
+  display: none;
 }
 
 .station-table::-webkit-scrollbar-track {
   border-radius: 999px;
-  background: transparent;
-}
-
-.station-table.is-vertical-scrolling::-webkit-scrollbar-track {
   background: transparent;
 }
 
@@ -954,14 +988,7 @@ onMounted(() => {
   background: rgba(115, 139, 171, 0.42);
 }
 
-.station-table.is-vertical-scrolling::-webkit-scrollbar-thumb {
-  background: rgba(115, 139, 171, 0.42);
-}
-
-.station-table.is-vertical-scrolling::-webkit-scrollbar-thumb:hover {
-  background: rgba(82, 111, 151, 0.58);
-}
-
+/* 表格行采用 table 布局，保持多字段台账列宽稳定。 */
 .table-content {
   display: table;
   width: max-content;
@@ -1013,32 +1040,34 @@ onMounted(() => {
   border-radius: 0 8px 8px 0;
   padding-right: 12px;
   padding-left: 12px;
-  background:
-    linear-gradient(90deg, rgba(255, 255, 255, 0.76), #ffffff 18px),
-    #ffffff;
-  box-shadow: -12px 0 18px rgba(255, 255, 255, 0.88);
+  background: #ffffff;
+  box-shadow:
+    -1px 0 0 rgba(224, 232, 243, 0.9),
+    -10px 0 16px rgba(255, 255, 255, 0.96);
 }
 
 .table-head {
-  position: sticky;
-  top: 0;
-  z-index: 2;
   color: #70839f;
   font-size: 12px;
   font-weight: 700;
 }
 
 .table-head > * {
+  position: sticky;
+  top: 0;
+  z-index: 4;
   height: 32px;
   background: #f5f8fd;
 }
 
 .table-head span:last-child {
-  z-index: 3;
-  background:
-    linear-gradient(90deg, rgba(245, 248, 253, 0.72), #f5f8fd 18px),
-    #f5f8fd;
+  right: 0;
+  z-index: 6;
+  background: #f5f8fd;
   text-align: center;
+  box-shadow:
+    -1px 0 0 rgba(224, 232, 243, 0.9),
+    -10px 0 16px rgba(245, 248, 253, 0.96);
 }
 
 .station-name {
@@ -1305,6 +1334,7 @@ onMounted(() => {
   overflow-wrap: anywhere;
 }
 
+/* 新增/编辑表单：默认两列，底部状态和提交按钮合并成同一行。 */
 .station-form {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -1319,9 +1349,16 @@ onMounted(() => {
   font-weight: 700;
 }
 
-.station-form label:nth-last-child(2),
-.station-form .save-button {
+.form-footer-row {
   grid-column: 1 / -1;
+  display: grid;
+  grid-template-columns: minmax(180px, 1fr) minmax(180px, 1fr);
+  gap: 12px;
+  align-items: end;
+}
+
+.status-form-field {
+  min-width: 0;
 }
 
 .station-form input,
@@ -1335,6 +1372,20 @@ onMounted(() => {
   padding: 0 11px;
 }
 
+.station-form input[readonly] {
+  border-color: #d7e1ee;
+  background: #f3f6fa;
+  color: #64748b;
+  cursor: not-allowed;
+  box-shadow: inset 0 1px 2px rgba(15, 23, 42, 0.04);
+}
+
+.station-form input[readonly]:focus {
+  outline: none;
+  border-color: #d7e1ee;
+  box-shadow: inset 0 1px 2px rgba(15, 23, 42, 0.04);
+}
+
 .srt-import-field {
   display: flex;
   align-items: end;
@@ -1343,24 +1394,51 @@ onMounted(() => {
 .srt-import-button {
   width: 100%;
   height: 38px;
-  border: 1px dashed #9ec5ff;
+  border: 1px solid rgba(75, 145, 245, 0.48);
   border-radius: 12px;
-  background: rgba(239, 247, 255, 0.84);
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.88), rgba(232, 243, 255, 0.96)),
+    #edf6ff;
   color: #1f66ed;
   font: inherit;
   font-size: 13px;
   font-weight: 800;
   cursor: pointer;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.9),
+    0 6px 14px rgba(31, 102, 237, 0.10);
   transition:
+    background 0.16s ease,
     border-color 0.16s ease,
-    background-color 0.16s ease,
-    color 0.16s ease;
+    box-shadow 0.16s ease,
+    filter 0.16s ease;
 }
 
 .srt-import-button:hover {
-  border-color: #5c9cff;
-  background: rgba(227, 240, 255, 0.98);
+  border-color: rgba(37, 117, 242, 0.72);
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.96), rgba(219, 236, 255, 0.98)),
+    #e3f0ff;
   color: #174fc0;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.98),
+    0 8px 18px rgba(31, 102, 237, 0.14);
+}
+
+.srt-import-button:active {
+  filter: brightness(0.98);
+  box-shadow:
+    inset 0 1px 2px rgba(31, 102, 237, 0.16),
+    0 4px 10px rgba(31, 102, 237, 0.10);
+}
+
+.srt-import-button:focus-visible {
+  outline: none;
+  border-color: rgba(37, 117, 242, 0.78);
+  box-shadow:
+    0 0 0 3px rgba(47, 130, 255, 0.14),
+    inset 0 1px 0 rgba(255, 255, 255, 0.95),
+    0 6px 14px rgba(31, 102, 237, 0.10);
 }
 
 .srt-file-input {
@@ -1372,6 +1450,12 @@ onMounted(() => {
   margin-top: 4px;
 }
 
+.form-footer-row .save-button {
+  width: 100%;
+  margin-top: 0;
+}
+
+/* 弹窗和响应式规则：小屏时优先保证表格可读和表单可滚动。 */
 @media (max-width: 860px) {
   .toolbar {
     align-items: flex-start;

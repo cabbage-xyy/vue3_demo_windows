@@ -1,4 +1,5 @@
 <template>
+  <!-- 旧版任务顶部条组件：保留为可复用展示件，当前主布局使用 AppMainLayout 顶栏。 -->
   <header class="task-strip">
     <div class="task-title">
       <span>热斑检测</span>
@@ -35,6 +36,7 @@ defineOptions({
   name: "DashboardTopBar",
 });
 
+// 顶部条仅展示父级传入的筛选和状态文案，不自己持久化状态。
 interface DashboardTopBarProps {
   filters: HeaderFilter[];
   statusText: string;

@@ -1,4 +1,5 @@
 <template>
+  <!-- 日志预览卡片：点击行或更多按钮时把查看意图交回 dashboard。 -->
   <section class="run-log-panel" aria-label="检测记录">
     <header>
       <div class="panel-title">
@@ -56,6 +57,7 @@ defineOptions({
   name: "RunLogPreviewPanel",
 });
 
+// 预览区只接收日志列表，具体记录来源和刷新节奏由父级负责。
 interface RunLogPreviewPanelProps {
   logs: RunLogItem[];
 }
@@ -71,6 +73,7 @@ type ExtendedRunLogItem = RunLogItem & {
   taskStatus?: string | null;
 };
 
+// 日志状态文案统一在这里兜底，避免模板里堆叠条件判断。
 const formatEndTime = (endTime: string | null) => {
   if (!endTime) {
     return "检测中";

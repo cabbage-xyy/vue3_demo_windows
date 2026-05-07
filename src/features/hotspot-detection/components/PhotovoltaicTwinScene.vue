@@ -1,4 +1,5 @@
 <template>
+  <!-- 数字孪生演示场景：用 CSS 阵列表达组件识别过程，不依赖外部 3D 引擎。 -->
   <section class="twin-scene detectionCanvas" aria-label="屋顶光伏组件热斑检测数字孪生视图">
     <div
       class="detection-viewport"
@@ -72,6 +73,7 @@ defineOptions({
   name: "PhotovoltaicTwinScene",
 });
 
+// 父级只控制检测状态和选中组件，场景内部负责动画排程和热点可见性。
 interface PhotovoltaicTwinSceneProps {
   markers: HotspotMarker[];
   selectedComponent: string;
@@ -87,6 +89,7 @@ const emit = defineEmits<{
 
 const markerByCode = computed(() => new Map(props.markers.map((marker) => [marker.moduleCode, marker])));
 
+// 演示热点布局：真实 marker 可覆盖严重程度和温差信息。
 const hotspotLayout = {
   "4-9": { id: "a03-18", moduleCode: "A-03-18", type: "高温热斑", temperatureDelta: "18.6°C", severity: "high" },
   "7-5": { id: "a03-24", moduleCode: "A-03-24", type: "疑似热斑", temperatureDelta: "12.4°C", severity: "medium" },
@@ -139,6 +142,7 @@ const idlePreviewIds = ["a03-18", "a03-24", "a03-31", "a04-07", "b01-12"];
 const idlePreviewIndex = ref(0);
 const isIdlePreview = computed(() => ["idlePreview", "idle", "imported"].includes(props.detectionStatus));
 
+// 所有动画定时器集中登记，状态切换和卸载时统一清理。
 const clearTimers = () => {
   while (timers.length > 0) {
     window.clearTimeout(timers.pop());
@@ -169,6 +173,7 @@ const resetHotspotVisibility = () => {
   visibleLabelIds.value = new Set();
 };
 
+// 空闲预览循环展示不同热点，降低未检测时画面静止感。
 const scheduleIdlePreview = () => {
   clearTimers();
   resetHotspotVisibility();
@@ -226,6 +231,7 @@ watch(
   },
 );
 
+// 检测状态变化驱动画面，避免模板里直接处理动画副作用。
 watch(
   () => props.detectionStatus,
   (status) => {
@@ -268,6 +274,7 @@ onBeforeUnmount(clearTimers);
 </script>
 
 <style scoped>
+/* 数字孪生场景使用纯 CSS 网格和动画，尺寸由父级容器约束。 */
 .twin-scene {
   position: relative;
   min-height: 0;

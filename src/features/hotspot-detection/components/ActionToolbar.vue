@@ -1,4 +1,5 @@
 <template>
+  <!-- 纯展示/派发组件：按钮是否禁用由父级 dashboard 计算。 -->
   <section class="action-toolbar" aria-label="检测操作">
     <button
       v-for="buttonItem in actions"
@@ -23,6 +24,7 @@ defineOptions({
   name: "ActionToolbar",
 });
 
+// 工具栏只接受配置化按钮和禁用列表，不直接接触检测接口。
 interface ActionToolbarProps {
   actions: ActionButton[];
   disabledActionIds?: string[];

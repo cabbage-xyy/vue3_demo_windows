@@ -1,4 +1,5 @@
 <template>
+  <!-- 检测指标横排卡片：数值由 dashboard 派生后传入。 -->
   <section class="metrics-row" aria-label="检测指标">
     <article v-for="metric in metrics" :key="metric.id" class="metric-card">
       <header>
@@ -22,6 +23,7 @@ defineOptions({
   name: "MetricsRow",
 });
 
+// 指标组件只负责稳定展示，不维护检测进度状态。
 interface MetricsRowProps {
   metrics: MetricCard[];
 }

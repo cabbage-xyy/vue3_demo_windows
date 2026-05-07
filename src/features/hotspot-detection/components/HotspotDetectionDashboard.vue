@@ -1,5 +1,6 @@
 <template>
   <div class="hotspot-dashboard">
+    <!-- 检测主工作区：左侧原始视频和右侧检测结果共享同一组卡片配置。 -->
     <section class="inspection-board" aria-label="热斑检测工作台">
       <div class="video-grid">
         <DetectionVideoPlayer
@@ -13,6 +14,7 @@
       <MetricsRow :metrics="dashboardMetrics" />
     </section>
 
+    <!-- 底部控制台：操作按钮和运行日志并列展示，日志详情由弹窗承载。 -->
     <section class="bottom-panel-grid" aria-label="底部控制台">
       <aside class="action-control-card" aria-label="操作控制">
         <header>
@@ -34,6 +36,7 @@
       />
     </section>
 
+    <!-- 运行日志详情弹窗：既支持查看全部日志，也支持查看单条日志。 -->
     <RunLogDetailModal
       :open="isRunLogModalOpen"
       :logs="modalRunLogs"
@@ -65,6 +68,7 @@ defineOptions({
   name: "HotspotDetectionDashboard",
 });
 
+// 检测流程状态机：控制按钮可用性、轮询、进度和报告导出入口。
 type DetectionStatus = "idle" | "imported" | "running" | "paused" | "completed" | "failed";
 
 interface ImportedVideo {
@@ -77,11 +81,13 @@ interface ImportedVideo {
 
 type HeaderProcessStatus = "未处理" | "处理中" | "已处理";
 
+// 顶部 header 状态由布局展示，这里只在检测流程节点发出状态变更事件。
 const setHeaderProcessStatus = (status: HeaderProcessStatus) => {
   localStorage.setItem("hotspotProcessStatus", status);
   window.dispatchEvent(new Event("hotspot-process-status-change"));
 };
 
+// 本组件状态分为：媒体输入、检测任务、进度指标、轮询定时器和运行日志。
 const isRunLogModalOpen = ref(false);
 const selectedRunLog = ref<RunLogItem | null>(null);
 const detectionStatus = ref<DetectionStatus>("idle");
@@ -97,6 +103,8 @@ const detectionStartTime = ref<number | null>(null);
 const detectionDurationSeconds = ref(0);
 const durationTimer = ref<number | null>(null);
 const runLogs = ref<RunLogItem[]>([]);
+
+// 后端检测记录进入运行日志面板前做字段兜底，避免空值破坏日志列表。
 interface DetectionTaskApiRecord {
   id?: number | string | null;
   companyName?: string | null;
@@ -156,6 +164,7 @@ const detectedHotspotPositions = hotspotMarkers.map(
   (marker) => marker.moduleCode,
 );
 
+// 业务上下文依赖顶部三级筛选，检测前必须能拿到公司/电站/屋顶。
 const activeLog = computed(() =>
   runLogs.value.find((logItem) => logItem.endTime === null),
 );
@@ -201,6 +210,7 @@ const modalRunLogs = computed(() =>
   selectedRunLog.value ? [selectedRunLog.value] : runLogs.value,
 );
 
+// 指标卡片从检测状态派生，mock 配置只提供静态标题和 icon。
 const detectionDurationText = computed(() => {
   const minutes = detectionDurationSeconds.value / 60;
   return `${minutes.toFixed(1)}min`;
@@ -276,6 +286,7 @@ const formatDateTime = (date: Date) => {
   return `${dateParts.join("-")} ${timeParts.join(":")}`;
 };
 
+// 媒体预览由后端静态代理输出，前端只负责拼接安全的查询参数。
 const buildVideoPreviewUrl = (path: string) => {
   return `http://127.0.0.1:8000/media/video?path=${encodeURIComponent(path)}`;
 };
@@ -296,6 +307,7 @@ const getSelectedRoofContext = () => {
   };
 };
 
+// 视频导入前先校验屋顶归属，避免检测任务和顶部筛选上下文错配。
 const validateVideoBelongsToSelectedRoof = async (videoPath: string) => {
   const { companyName, stationName, roofName } = getSelectedRoofContext();
 
@@ -339,6 +351,7 @@ const validateVideoBelongsToSelectedRoof = async (videoPath: string) => {
   }
 };
 
+// 检测接口可能返回不同命名的结果图字段，统一从常见字段里取第一张图片。
 const pickFirstString = (value: unknown): string => {
   if (typeof value === "string") {
     return value;
@@ -427,6 +440,7 @@ const importVideo = async () => {
   console.log("导入视频路径：", inputVideoPath.value);
 };
 
+// 运行日志弹窗只管理查看范围，日志内容仍由后端检测记录接口刷新。
 const openRunLogModal = (record?: RunLogItem) => {
   selectedRunLog.value = record ?? null;
   isRunLogModalOpen.value = true;
@@ -437,6 +451,7 @@ const closeRunLogModal = () => {
   isRunLogModalOpen.value = false;
 };
 
+// 轮询和计时器是检测流程的副作用，集中提供启动/停止函数便于卸载清理。
 const stopPollingDetectionStatus = () => {
   if (pollingTimer.value !== null) {
     window.clearInterval(pollingTimer.value);
@@ -530,6 +545,7 @@ const pollDetectionStatus = (taskId: string) => {
   }, 1000);
 };
 
+// 启动检测时锁定当前顶部筛选上下文和已导入视频路径。
 const startDetection = async () => {
   const { companyName, stationName, roofName } = getSelectedRoofContext();
 
@@ -610,6 +626,7 @@ const startDetection = async () => {
   }
 };
 
+// 前端日志的完成态补齐，用于弹窗即时反馈；后端台账仍通过接口刷新。
 const finishActiveDetectionRecord = () => {
   const runningLog = activeLog.value;
 
@@ -653,6 +670,7 @@ const stopDetection = async () => {
   }
 };
 
+// 报告导出交给后端生成/保存，前端只处理文件名和保存路径选择。
 const exportLatestReport = async () => {
   try {
     const latestReportResponse = await fetch("http://127.0.0.1:8000/report/latest");
@@ -714,6 +732,7 @@ const completeDetection = () => {
   finishActiveDetectionRecord();
 };
 
+// 操作栏事件分发：按钮只发 actionId，具体副作用留在 dashboard 内部。
 const handleToolbarAction = (actionId: string) => {
   if (actionId === "import-video") {
     void importVideo();
@@ -754,6 +773,7 @@ onBeforeUnmount(() => {
 </script>
 
 <style scoped>
+/* 检测页主网格：上方视频/指标工作台，下方操作控制和运行日志。 */
 .hotspot-dashboard {
   min-width: 0;
   height: 100%;
@@ -765,6 +785,7 @@ onBeforeUnmount(() => {
   overflow: hidden;
 }
 
+/* 视频检测工作区：固定在剩余高度内，避免 Tauri 小窗口出现外层滚动。 */
 .inspection-board {
   min-width: 0;
   min-height: 0;
@@ -810,6 +831,7 @@ onBeforeUnmount(() => {
   aspect-ratio: auto;
 }
 
+/* 底部控制台：高度固定，保障视频区域尺寸稳定。 */
 .bottom-panel-grid {
   min-width: 0;
   min-height: 0;

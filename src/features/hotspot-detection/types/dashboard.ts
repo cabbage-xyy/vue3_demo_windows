@@ -1,5 +1,6 @@
 import type { IconName } from "@/types/ui";
 
+// 热斑检测 feature 的共享 UI 数据结构，供 dashboard、工具栏、日志和指标组件复用。
 export interface HeaderFilter {
   id: string;
   label: string;

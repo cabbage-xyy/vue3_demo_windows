@@ -1,3 +1,4 @@
+/* 全局设计变量：页面级样式优先复用这些基础色值。 */
 :root {
   --app-bg: #f3f7fc;
   --surface: #ffffff;
@@ -6,6 +7,7 @@
   --brand-primary: #2d8cff;
 }
 
+/* Tauri 桌面窗口由应用内部网格控制滚动，避免浏览器 body 出现外层滚动条。 */
 *,
 *::before,
 *::after {

@@ -1,4 +1,5 @@
 <template>
+  <!-- 内嵌 AI 助手：本地模拟对话体验，不连接后端推理服务。 -->
   <section class="ai-panel" aria-label="AI 助手对话">
     <header class="assistant-header">
       <strong>小芯助手</strong>
@@ -48,6 +49,7 @@ defineOptions({
   name: "EmbeddedAiAssistantPanel",
 });
 
+// 父级可传入初始消息，组件内部负责快速操作、思考态和滚动到底部。
 interface EmbeddedAiAssistantPanelProps {
   messages: AiAssistantMessage[];
 }
@@ -95,6 +97,7 @@ const quickActionTimers: number[] = [];
 
 const quickCommands = ["定位高风险组件", "生成诊断摘要", "导出巡检报告"];
 
+// 初始消息优先取父级数据，缺省时使用本地欢迎话术保证面板不空。
 const initialMessages: ChatMessage[] =
   props.messages.length > 0
     ? props.messages.slice(0, 3).map((message, index) => ({
@@ -161,6 +164,7 @@ const createAiReply = (text: string) => {
   return "已收到指令，正在分析当前检测画面。";
 };
 
+// 模拟回复统一走 thinking 状态，方便未来替换成真实 AI 接口。
 const appendAiReply = (sourceText: string) => {
   if (replyTimer !== null) {
     window.clearTimeout(replyTimer);
@@ -212,6 +216,7 @@ const showQuickActionsSequentially = () => {
   });
 };
 
+// 动画和定时器集中在生命周期里注册/清理，避免切页后残留回调。
 onMounted(() => {
   const prefersReducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 

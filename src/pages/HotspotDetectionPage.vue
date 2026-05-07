@@ -1,4 +1,5 @@
 <template>
+  <!-- 路由页面薄封装：热斑检测业务全部收敛到 feature dashboard。 -->
   <HotspotDetectionDashboard />
 </template>
 

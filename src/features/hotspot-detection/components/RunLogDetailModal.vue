@@ -1,5 +1,6 @@
 <template>
   <Teleport to="body">
+    <!-- 日志详情使用 Teleport 脱离检测面板裁剪，确保弹窗层级稳定。 -->
     <div v-if="open" class="modal-backdrop" @click.self="emit('close')">
       <section class="run-log-modal" aria-label="检测记录详情">
         <header>
@@ -61,6 +62,7 @@ defineOptions({
   name: "RunLogDetailModal",
 });
 
+// 详情弹窗保持只读，所有日志更新都通过父级刷新后重新传入。
 interface RunLogDetailModalProps {
   open: boolean;
   logs: RunLogItem[];
@@ -79,6 +81,7 @@ type ExtendedRunLogItem = RunLogItem & {
   taskStatus?: string | null;
 };
 
+// 后端日志扩展字段不进入基础类型，展示时在这里做安全读取和文案归一。
 const extraText = (logItem: RunLogItem, key: "companyName", fallback: string) => {
   const value = (logItem as ExtendedRunLogItem)[key];
   return value || fallback;

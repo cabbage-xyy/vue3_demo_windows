@@ -9,6 +9,7 @@ export interface AppNavigationItem {
   marker?: string;
 }
 
+// 侧边栏导航元数据：图标、路由和说明都从这里派发给主布局。
 export const appNavigationItems: AppNavigationItem[] = [
   {
     label: "电站管理",

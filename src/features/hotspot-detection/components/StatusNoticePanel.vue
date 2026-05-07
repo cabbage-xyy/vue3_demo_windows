@@ -1,4 +1,5 @@
 <template>
+  <!-- 状态通知面板：展示系统提示和跳转入口，不保存通知读取状态。 -->
   <section class="notice-panel" :aria-label="title">
     <header>
       <div class="panel-title">
@@ -32,6 +33,7 @@ defineOptions({
   name: "StatusNoticePanel",
 });
 
+// 通知内容由父级提供，footer 用于补充当前模块状态说明。
 interface StatusNoticePanelProps {
   title: string;
   items: StatusNotice[];

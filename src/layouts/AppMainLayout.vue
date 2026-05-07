@@ -1,5 +1,6 @@
 <template>
   <div class="app-shell">
+    <!-- 应用级导航：只承载路由入口和当前页高亮，不放业务状态。 -->
     <aside class="app-sidebar" aria-label="主导航">
       <RouterLink class="brand-panel" :to="{ name: routeNames.hotspotDetection }" aria-label="热斑检测">
         <svg class="brand-mark" viewBox="0 0 32 32" aria-hidden="true">
@@ -36,6 +37,7 @@
       </nav>
     </aside>
 
+    <!-- 顶部工作台栏：页面标题、热斑检测筛选器和临时处理状态都集中在这里。 -->
     <header class="app-header" :class="{ 'has-header-controls': showHeaderControls }">
       <div class="header-left">
         <div class="page-title">
@@ -118,6 +120,7 @@
       </div>
     </header>
 
+    <!-- 子路由页面出口：页面主体布局由各 page/feature 自己负责。 -->
     <main class="app-content">
       <RouterView />
     </main>
@@ -137,6 +140,7 @@ defineOptions({
 
 const route = useRoute();
 
+// 顶部筛选器定义：模板按 id 分发到公司/电站/屋顶三级下拉。
 const headerFilters = [
   { id: "company", label: "公司名称", selected: true },
   { id: "station", label: "电站名称", selected: false },
@@ -169,7 +173,7 @@ const selectedCompanyName = ref("");
 const selectedStationName = ref("");
 const selectedRoofName = ref("");
 
-
+// 下拉选项统一做去重和空值清洗，避免后端重复记录直接污染筛选器。
 const toUniqueNameOptions = (names: string[]) => {
   return Array.from(new Set(names.map((name) => name.trim()).filter(Boolean))).map((name) => ({ name }));
 };
@@ -210,6 +214,7 @@ const rebuildRoofOptions = () => {
   );
 };
 
+// 电站资产数据只用于顶部筛选，不影响电站管理页面自己的表格数据。
 const fetchStationRecords = async () => {
   try {
     const response = await fetch("http://127.0.0.1:8000/station-management/stations");
@@ -252,6 +257,7 @@ const fetchStationRecords = async () => {
   }
 };
 
+// 三级联动筛选：上游变更时清空下游选择，并同步给热斑检测面板读取。
 const handleCompanyChange = () => {
   selectedStationName.value = "";
   selectedRoofName.value = "";
@@ -287,15 +293,28 @@ const showHeaderControls = computed(() => route.name === routeNames.hotspotDetec
 
 const processStatusText = ref("未处理");
 
+// Tauri 每次重新打开时重置顶部临时 UI 状态，历史检测记录仍由后端接口保留。
+const resetHotspotDetectionHeaderState = () => {
+  selectedCompanyName.value = "";
+  selectedStationName.value = "";
+  selectedRoofName.value = "";
+  processStatusText.value = "未处理";
+  stationOptions.value = [];
+  roofOptions.value = [];
+
+  localStorage.removeItem("selectedCompanyName");
+  localStorage.removeItem("selectedStationName");
+  localStorage.removeItem("selectedRoofName");
+  localStorage.setItem("hotspotProcessStatus", "未处理");
+};
+
+// 检测面板通过自定义事件通知处理状态，布局只负责展示文案。
 const syncProcessStatusText = () => {
   processStatusText.value = localStorage.getItem("hotspotProcessStatus") || "未处理";
 };
 
 onMounted(() => {
-  syncProcessStatusText();
-  selectedCompanyName.value = localStorage.getItem("selectedCompanyName") || "";
-  selectedStationName.value = localStorage.getItem("selectedStationName") || "";
-  selectedRoofName.value = localStorage.getItem("selectedRoofName") || "";
+  resetHotspotDetectionHeaderState();
   void fetchStationRecords();
   window.addEventListener("hotspot-process-status-change", syncProcessStatusText);
 });
@@ -306,6 +325,7 @@ onBeforeUnmount(() => {
 </script>
 
 <style scoped>
+/* 应用外壳：固定侧栏 + 顶部栏 + 内容区，保证 Tauri 窗口内不出现全页滚动。 */
 .app-shell {
   width: 100vw;
   height: 100vh;
@@ -319,6 +339,7 @@ onBeforeUnmount(() => {
   overflow: hidden;
 }
 
+/* 侧边导航：全局页面入口和品牌区。 */
 .app-sidebar {
   grid-row: 1 / -1;
   min-width: 0;
@@ -433,6 +454,7 @@ onBeforeUnmount(() => {
   line-height: 1;
 }
 
+/* 顶部栏：热斑检测页筛选器必须保持单行，避免压缩主体工作区。 */
 .app-header {
   min-width: 0;
   min-height: 0;
@@ -613,6 +635,7 @@ onBeforeUnmount(() => {
   font-size: 18px;
 }
 
+/* 内容区：页面内部自己处理表格、卡片或检测工作台的滚动。 */
 .app-content {
   min-width: 0;
   min-height: 0;

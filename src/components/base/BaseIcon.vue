@@ -33,6 +33,7 @@ const props = withDefaults(defineProps<BaseIconProps>(), {
   strokeWidth: 2,
 });
 
+// 本地 SVG path 注册表：所有页面按钮/菜单只通过 IconName 取图标，保持视觉资产集中维护。
 const iconPaths: Record<IconName, string[]> = {
   home: ["M4 11.5 12 5l8 6.5", "M6 10v9h12v-9", "M10 19v-5h4v5"],
   monitor: ["M4 5h16v12H4z", "M10 21h4", "M8 17h8"],
@@ -71,5 +72,6 @@ const iconPaths: Record<IconName, string[]> = {
   "more-horizontal": ["M5 12h.01", "M12 12h.01", "M19 12h.01"],
 };
 
+// 未注册图标回落为空数组，避免渲染异常破坏按钮布局。
 const paths = computed(() => iconPaths[props.name] ?? []);
 </script>

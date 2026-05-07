@@ -1,3 +1,4 @@
+// 共享图标名称白名单，避免页面直接传入未注册的图标 key。
 export type IconName =
   | "home"
   | "monitor"

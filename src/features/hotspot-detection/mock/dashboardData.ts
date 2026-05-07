@@ -11,6 +11,7 @@ import type {
   VideoCard,
 } from "@/features/hotspot-detection/types/dashboard";
 
+// 检测页静态展示配置：真实运行时的进度、图片和日志由 dashboard 状态覆盖。
 export const headerFilters: HeaderFilter[] = [
   { id: "company", label: "公司名称", value: "公司名称", selected: true },
   { id: "station", label: "电站名称", value: "电站名称", selected: false },

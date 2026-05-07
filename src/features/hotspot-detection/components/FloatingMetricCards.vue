@@ -1,4 +1,5 @@
 <template>
+  <!-- 浮动指标卡片：用于展示更丰富的检测指标，可按 tone 切换视觉强调。 -->
   <section class="metric-cloud" aria-label="检测关键指标">
     <article v-for="metric in metrics" :key="metric.id" class="metric-card" :class="metric.tone">
       <div>
@@ -21,6 +22,7 @@ defineOptions({
   name: "FloatingMetricCards",
 });
 
+// 指标数据由父级组装，本组件只负责四种 tone 的视觉表达。
 interface FloatingMetricCardsProps {
   metrics: DetectionMetric[];
 }

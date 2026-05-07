@@ -1,4 +1,5 @@
 <template>
+  <!-- 静态视频对比面板：用于展示双视频卡片布局，不接入真实播放器状态。 -->
   <section class="video-panel">
     <article v-for="video in videos" :key="video.id" class="video-card">
       <h2 class="card-title">{{ video.title }}</h2>
@@ -26,6 +27,7 @@ defineOptions({
   name: "VideoComparisonPanel",
 });
 
+// 视频卡片配置由父级传入，组件保持纯展示。
 interface VideoComparisonPanelProps {
   videos: VideoCard[];
 }
