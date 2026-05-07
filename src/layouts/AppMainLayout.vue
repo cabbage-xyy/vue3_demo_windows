@@ -444,7 +444,7 @@ onBeforeUnmount(() => {
   display: flex;
   flex-wrap: nowrap;
   align-items: center;
-  gap: 16px;
+  gap: 0;
   overflow: hidden;
 }
 
@@ -457,9 +457,9 @@ onBeforeUnmount(() => {
 }
 
 .header-left {
-  flex: 1 1 auto;
+  flex: 0 1 auto;
   overflow: hidden;
-  gap: 16px;
+  gap: 28px;
   flex-wrap: nowrap;
 }
 
@@ -485,10 +485,10 @@ onBeforeUnmount(() => {
 }
 
 .filter-cluster {
-  flex: 1 1 auto;
+  flex: 0 1 auto;
   min-width: 0;
   overflow: hidden;
-  justify-content: center;
+  justify-content: flex-start;
   gap: 12px;
   flex-wrap: nowrap;
 }
@@ -536,14 +536,14 @@ onBeforeUnmount(() => {
 }
 
 .filter-select--company {
-  width: clamp(220px, 26vw, 330px);
-  flex: 0 1 clamp(220px, 26vw, 330px);
+  width: clamp(240px, 28vw, 320px);
+  flex: 0 1 clamp(240px, 28vw, 320px);
 }
 
 .filter-select--station,
 .filter-select--roof {
-  width: clamp(160px, 18vw, 230px);
-  flex: 0 1 clamp(160px, 18vw, 230px);
+  width: clamp(170px, 18vw, 220px);
+  flex: 0 1 clamp(170px, 18vw, 220px);
 }
 
 .filter-select:disabled {
@@ -563,7 +563,7 @@ onBeforeUnmount(() => {
 .header-right {
   flex: 0 0 auto;
   min-width: auto;
-  margin-left: auto;
+  margin-left: 28px;
   overflow: visible;
   justify-content: flex-end;
   gap: 18px;
@@ -645,23 +645,23 @@ onBeforeUnmount(() => {
   }
 
   .app-header {
-    padding: 0 18px;
-    gap: 12px;
+    padding: 0 26px;
+    gap: 0;
   }
 
   .header-left {
-    gap: 14px;
+    gap: 28px;
   }
 
   .filter-cluster {
-    gap: 10px;
+    gap: 12px;
   }
 }
 
 @media (max-width: 1180px) {
   .app-header {
     flex-wrap: nowrap;
-    padding: 0 18px;
+    padding: 0 26px;
   }
 
   .header-left,
