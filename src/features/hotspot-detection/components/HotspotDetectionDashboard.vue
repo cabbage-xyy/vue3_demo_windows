@@ -5,9 +5,10 @@
       <div class="video-grid">
         <DetectionVideoPlayer
           v-for="video in videoCards"
-          :key="`${video.id}-${video.id === 'source-video' ? importedVideo?.url ?? 'empty' : resultImageUrl || 'empty'}`"
+          :key="`${video.id}-${video.id === 'source-video' ? importedVideo?.url ?? 'empty' : resultImageUrls.join('|') || resultImageUrl || 'empty'}`"
           :video="video"
           :media-url="video.id === 'source-video' ? importedVideo?.url : video.id === 'result-video' ? resultImageUrl : null"
+          :media-urls="video.id === 'result-video' ? resultImageUrls : []"
         />
       </div>
 
@@ -98,11 +99,16 @@ const detectionProgress = ref(0);
 const detectedHotspotCount = ref(0);
 const resultImagePath = ref("");
 const resultImageUrl = ref("");
+const resultImagePaths = ref<string[]>([]);
+const resultImageUrls = ref<string[]>([]);
 const pollingTimer = ref<number | null>(null);
 const detectionStartTime = ref<number | null>(null);
 const detectionDurationSeconds = ref(0);
 const durationTimer = ref<number | null>(null);
 const runLogs = ref<RunLogItem[]>([]);
+const selectedCompanyName = ref("");
+const selectedStationName = ref("");
+const selectedRoofName = ref("");
 
 // 后端检测记录进入运行日志面板前做字段兜底，避免空值破坏日志列表。
 interface DetectionTaskApiRecord {
@@ -170,8 +176,11 @@ const activeLog = computed(() =>
 );
 
 const hasSelectedRoofContext = computed(() => {
-  const { companyName, stationName, roofName } = getSelectedRoofContext();
-  return Boolean(companyName && stationName && roofName);
+  return Boolean(
+    selectedCompanyName.value &&
+      selectedStationName.value &&
+      selectedRoofName.value,
+  );
 });
 
 const canStartDetection = computed(() => {
@@ -301,10 +310,16 @@ const buildImagePreviewUrl = (path: string) => {
 
 const getSelectedRoofContext = () => {
   return {
-    companyName: localStorage.getItem("selectedCompanyName") || "",
-    stationName: localStorage.getItem("selectedStationName") || "",
-    roofName: localStorage.getItem("selectedRoofName") || "",
+    companyName: selectedCompanyName.value,
+    stationName: selectedStationName.value,
+    roofName: selectedRoofName.value,
   };
+};
+
+const syncSelectedRoofContext = () => {
+  selectedCompanyName.value = localStorage.getItem("selectedCompanyName") || "";
+  selectedStationName.value = localStorage.getItem("selectedStationName") || "";
+  selectedRoofName.value = localStorage.getItem("selectedRoofName") || "";
 };
 
 // 视频导入前先校验屋顶归属，避免检测任务和顶部筛选上下文错配。
@@ -374,9 +389,28 @@ const pickFirstString = (value: unknown): string => {
   return "";
 };
 
+const pickStringList = (value: unknown): string[] => {
+  if (typeof value === "string") {
+    return value ? [value] : [];
+  }
+
+  if (Array.isArray(value)) {
+    return value.flatMap((item) => pickStringList(item)).filter(Boolean);
+  }
+
+  if (value && typeof value === "object") {
+    const record = value as Record<string, unknown>;
+    return pickStringList(record.path ?? record.url ?? record.image_path ?? record.frame_path);
+  }
+
+  return [];
+};
+
 const pickResultImagePath = (data: Record<string, unknown>) => {
   return pickFirstString(
-    data.result_image_path ??
+    data.hotspot_image_paths ??
+      data.report_image_paths ??
+      data.result_image_path ??
       data.result_frame_path ??
       data.image_path ??
       data.result_image_paths ??
@@ -384,6 +418,22 @@ const pickResultImagePath = (data: Record<string, unknown>) => {
       data.result_images ??
       data.result_frames,
   );
+};
+
+const pickResultImagePaths = (data: Record<string, unknown>) => {
+  const hotspotImagePaths = pickStringList(data.hotspot_image_paths);
+  const reportImagePaths = pickStringList(data.report_image_paths);
+  const fallbackImagePaths = pickStringList(
+    data.result_image_paths ??
+      data.result_frame_paths ??
+      data.result_images ??
+      data.result_frames ??
+      data.result_image_path ??
+      data.result_frame_path ??
+      data.image_path,
+  );
+
+  return [...hotspotImagePaths, ...reportImagePaths, ...fallbackImagePaths];
 };
 
 const importVideo = async () => {
@@ -426,6 +476,8 @@ const importVideo = async () => {
   stopDurationTimer();
   resultImagePath.value = "";
   resultImageUrl.value = "";
+  resultImagePaths.value = [];
+  resultImageUrls.value = [];
 
   importedVideo.value = {
     name: selected.split("/").pop() || "已导入视频",
@@ -503,10 +555,24 @@ const pollDetectionStatus = (taskId: string) => {
         detectedHotspotCount.value = nextHotspotCount;
       }
 
-      const nextResultImagePath = pickResultImagePath(data);
-      if (nextResultImagePath) {
-        resultImagePath.value = nextResultImagePath;
-        resultImageUrl.value = buildImagePreviewUrl(nextResultImagePath);
+      const nextResultImagePaths = pickResultImagePaths(data);
+      if (nextResultImagePaths.length > 0) {
+        resultImagePaths.value = nextResultImagePaths;
+        resultImageUrls.value = nextResultImagePaths.map((path) => buildImagePreviewUrl(path));
+        resultImagePath.value = nextResultImagePaths[0] ?? "";
+        resultImageUrl.value = resultImageUrls.value[0] ?? "";
+        console.log("检测结果图片路径列表：", resultImagePaths.value);
+        console.log("检测结果图片URL列表：", resultImageUrls.value);
+      } else {
+        const nextResultImagePath = pickResultImagePath(data);
+        if (nextResultImagePath) {
+          resultImagePath.value = nextResultImagePath;
+          resultImageUrl.value = buildImagePreviewUrl(nextResultImagePath);
+          resultImagePaths.value = [nextResultImagePath];
+          resultImageUrls.value = [resultImageUrl.value];
+          console.log("检测结果图片路径：", resultImagePath.value);
+          console.log("检测结果图片URL：", resultImageUrl.value);
+        }
       }
 
       if (data.status === "completed") {
@@ -576,6 +642,8 @@ const startDetection = async () => {
   detectionDurationSeconds.value = 0;
   resultImagePath.value = "";
   resultImageUrl.value = "";
+  resultImagePaths.value = [];
+  resultImageUrls.value = [];
 
   startDurationTimer();
   setHeaderProcessStatus("处理中");
@@ -761,14 +829,20 @@ const handleToolbarAction = (actionId: string) => {
 };
 
 onMounted(() => {
+  syncSelectedRoofContext();
+  window.addEventListener("hotspot-selection-change", syncSelectedRoofContext);
   void fetchDetectionTaskRecords();
 });
 
 onBeforeUnmount(() => {
+  window.removeEventListener("hotspot-selection-change", syncSelectedRoofContext);
   stopPollingDetectionStatus();
   stopDurationTimer();
   importedVideo.value = null;
   resultImageUrl.value = "";
+  resultImagePath.value = "";
+  resultImagePaths.value = [];
+  resultImageUrls.value = [];
 });
 </script>
 

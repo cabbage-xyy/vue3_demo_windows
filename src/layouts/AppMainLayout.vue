@@ -173,6 +173,10 @@ const selectedCompanyName = ref("");
 const selectedStationName = ref("");
 const selectedRoofName = ref("");
 
+const emitHotspotSelectionChange = () => {
+  window.dispatchEvent(new Event("hotspot-selection-change"));
+};
+
 // 下拉选项统一做去重和空值清洗，避免后端重复记录直接污染筛选器。
 const toUniqueNameOptions = (names: string[]) => {
   return Array.from(new Set(names.map((name) => name.trim()).filter(Boolean))).map((name) => ({ name }));
@@ -270,6 +274,7 @@ const handleCompanyChange = () => {
 
   console.log("当前选择公司：", selectedCompanyName.value);
   rebuildStationOptions();
+  emitHotspotSelectionChange();
 };
 
 const handleStationChange = () => {
@@ -281,11 +286,13 @@ const handleStationChange = () => {
 
   console.log("当前选择电站：", selectedStationName.value);
   rebuildRoofOptions();
+  emitHotspotSelectionChange();
 };
 
 const handleRoofChange = () => {
   localStorage.setItem("selectedRoofName", selectedRoofName.value);
   console.log("当前选择屋顶：", selectedRoofName.value);
+  emitHotspotSelectionChange();
 };
 
 const pageTitle = computed(() => (typeof route.meta.title === "string" ? route.meta.title : "热斑检测"));
@@ -306,6 +313,7 @@ const resetHotspotDetectionHeaderState = () => {
   localStorage.removeItem("selectedStationName");
   localStorage.removeItem("selectedRoofName");
   localStorage.setItem("hotspotProcessStatus", "未处理");
+  emitHotspotSelectionChange();
 };
 
 // 检测面板通过自定义事件通知处理状态，布局只负责展示文案。

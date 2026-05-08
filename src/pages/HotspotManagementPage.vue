@@ -29,7 +29,7 @@
           </div>
         </div>
 
-        <div class="hotspot-table-scroll">
+        <div ref="hotspotTableScrollRef" class="hotspot-table-scroll" @wheel="handleHotspotTableWheel">
           <table class="hotspot-table" aria-label="热斑检测记录列表">
             <thead>
               <tr class="table-row table-head">
@@ -39,7 +39,7 @@
                 <th scope="col">屋顶名称</th>
                 <th scope="col">检测时间</th>
                 <th scope="col">异常组件数</th>
-                <th scope="col">缺陷类型</th>
+                <th scope="col">缺陷图片</th>
                 <th scope="col">处理状态</th>
                 <th scope="col">报告状态</th>
                 <th scope="col">操作</th>
@@ -58,7 +58,17 @@
                 <td class="cell-text" :title="record.roofName">{{ record.roofName }}</td>
                 <td>{{ record.detectTime }}</td>
                 <td class="hotspot-count">{{ record.hotspotComponentCount }}</td>
-                <td class="cell-text" :title="record.defectSummary">{{ record.defectSummary }}</td>
+                <td class="defect-image-cell">
+                  <button
+                    v-if="record.defectImageUrls.length > 0"
+                    type="button"
+                    class="defect-image-view-button"
+                    @click="openDefectImagePreview(record)"
+                  >
+                    查看
+                  </button>
+                  <span v-else class="defect-image-empty">无</span>
+                </td>
                 <td><span class="status-pill" :class="record.processStatus">{{ record.processStatus }}</span></td>
                 <td><span class="report-pill" :class="record.reportStatus">{{ record.reportStatus }}</span></td>
                 <td class="row-actions">
@@ -228,6 +238,20 @@
               <dd>{{ selectedRecord.defectSummary }}</dd>
             </div>
             <div>
+              <dt>缺陷图片</dt>
+              <dd>
+                <button
+                  v-if="selectedRecord.defectImageUrls.length > 0"
+                  type="button"
+                  class="report-view-button"
+                  @click="openDefectImagePreview(selectedRecord)"
+                >
+                  查看图片
+                </button>
+                <span v-else>无</span>
+              </dd>
+            </div>
+            <div>
               <dt>处理状态</dt>
               <dd>{{ selectedRecord.processStatus }}</dd>
             </div>
@@ -235,12 +259,71 @@
         </section>
       </aside>
     </div>
-  </section>
+</section>
+
+    <Teleport to="body">
+      <div
+        v-if="isDefectImagePreviewOpen"
+        class="image-preview-overlay"
+        role="dialog"
+        aria-modal="true"
+        aria-label="缺陷图片预览"
+        @click.self="closeDefectImagePreview"
+      >
+        <button
+          type="button"
+          class="image-preview-close"
+          aria-label="关闭缺陷图片预览"
+          @click="closeDefectImagePreview"
+        >
+          ×
+        </button>
+
+        <button
+          v-if="canShowPreviousDefectImage"
+          type="button"
+          class="image-preview-nav image-preview-prev"
+          aria-label="上一张缺陷图片"
+          @click.stop="showPreviousDefectImage"
+        >
+          ‹
+        </button>
+
+        <img
+          v-if="activeDefectImageUrl"
+          class="image-preview-content"
+          :src="activeDefectImageUrl"
+          alt="缺陷图片预览"
+        />
+
+        <button
+          v-if="canShowNextDefectImage"
+          type="button"
+          class="image-preview-nav image-preview-next"
+          aria-label="下一张缺陷图片"
+          @click.stop="showNextDefectImage"
+        >
+          ›
+        </button>
+
+        <div v-if="activeDefectImageUrls.length > 1" class="image-preview-dots" aria-label="缺陷图片切换指示器">
+          <button
+            v-for="(_, index) in activeDefectImageUrls"
+            :key="index"
+            type="button"
+            class="image-preview-dot"
+            :class="{ 'is-active': index === activeDefectImageIndex }"
+            :aria-label="`查看第 ${index + 1} 张缺陷图片`"
+            @click.stop="activeDefectImageIndex = index"
+          ></button>
+        </div>
+      </div>
+    </Teleport>
 </template>
 
 <script setup lang="ts">
 import { invoke } from "@tauri-apps/api/core";
-import { computed, onMounted, reactive, ref } from "vue";
+import { computed, onBeforeUnmount, onMounted, reactive, ref } from "vue";
 import BaseIcon from "@/components/base/BaseIcon.vue";
 
 defineOptions({
@@ -269,6 +352,12 @@ interface HotspotManagementApiRecord {
   reportStatus?: string | null;
   createdAt?: string | null;
   updatedAt?: string | null;
+  defectImagePaths?: unknown;
+  defectImageUrls?: unknown;
+  hotspotImagePaths?: unknown;
+  hotspot_image_paths?: unknown;
+  reportImagePaths?: unknown;
+  report_image_paths?: unknown;
 }
 
 interface HotspotRecord {
@@ -285,6 +374,8 @@ interface HotspotRecord {
   detectDuration: string;
   hotspotComponentCount: number;
   defectSummary: string;
+  defectImagePaths: string[];
+  defectImageUrls: string[];
   processStatus: HotspotStatus;
   reportStatus: ReportStatus;
   createdAt: string;
@@ -305,6 +396,8 @@ const createEmptyForm = (): HotspotForm => ({
   detectDuration: "0",
   hotspotComponentCount: 0,
   defectSummary: "热斑",
+  defectImagePaths: [],
+  defectImageUrls: [],
   processStatus: "未处理",
   reportStatus: "已生成",
 });
@@ -312,12 +405,53 @@ const createEmptyForm = (): HotspotForm => ({
 // 页面状态：检测记录、筛选条件、编辑弹窗和详情弹窗彼此独立。
 const inspectionRecords = ref<HotspotRecord[]>([]);
 const isLoadingRecords = ref(false);
+const hotspotTableScrollRef = ref<HTMLElement | null>(null);
 const searchKeyword = ref("");
 const statusFilter = ref<HotspotStatus | "all">("all");
 const editingRecordId = ref<number | null>(null);
 const isFormOpen = ref(false);
 const selectedRecord = ref<HotspotRecord | null>(null);
 const recordForm = reactive<HotspotForm>(createEmptyForm());
+const activeDefectImageUrls = ref<string[]>([]);
+const activeDefectImageIndex = ref(0);
+const isDefectImagePreviewOpen = ref(false);
+const pickStringList = (value: unknown): string[] => {
+  if (typeof value === "string") {
+    return value ? [value] : [];
+  }
+
+  if (Array.isArray(value)) {
+    return value.flatMap((item) => pickStringList(item)).filter(Boolean);
+  }
+
+  if (value && typeof value === "object") {
+    const record = value as Record<string, unknown>;
+    return pickStringList(record.path ?? record.url ?? record.image_path ?? record.frame_path);
+  }
+
+  return [];
+};
+
+const buildImagePreviewUrl = (pathOrUrl: string) => {
+  if (!pathOrUrl) {
+    return "";
+  }
+
+  if (/^https?:\/\//i.test(pathOrUrl)) {
+    return pathOrUrl;
+  }
+
+  return `http://127.0.0.1:8000/media/image?path=${encodeURIComponent(pathOrUrl)}`;
+};
+
+const collectDefectImagePaths = (record: HotspotManagementApiRecord) => {
+  const hotspotImagePaths = pickStringList(record.hotspotImagePaths ?? record.hotspot_image_paths);
+
+  // 热斑管理页的“缺陷图片”只展示热斑现场图，不展示报告页图片。
+  // 后端 defectImagePaths 里可能合并了 hotspot_image_paths + report_image_paths，
+  // 这里前端只取 hotspot_image_paths，避免预览时出现报告页。
+  return hotspotImagePaths;
+};
 
 // 后端数据进入页面前统一归一化，保证 UI 展示字段有稳定兜底。
 const normalizeProcessStatus = (status: string | null | undefined): HotspotStatus => {
@@ -348,6 +482,7 @@ const normalizeHotspotRecord = (record: HotspotManagementApiRecord, index: numbe
   const idNumber = Number(record.id);
   const id = Number.isFinite(idNumber) ? idNumber : Date.now() + index;
   const countNumber = Number(record.hotspotComponentCount);
+  const defectImagePaths = collectDefectImagePaths(record);
 
   return {
     id,
@@ -363,11 +498,75 @@ const normalizeHotspotRecord = (record: HotspotManagementApiRecord, index: numbe
     detectDuration: formatNullableValue(record.detectDuration || 0),
     hotspotComponentCount: Number.isFinite(countNumber) ? countNumber : 0,
     defectSummary: record.defectSummary || "热斑",
+    defectImagePaths,
+    defectImageUrls: defectImagePaths.map((path) => buildImagePreviewUrl(path)),
     processStatus: normalizeProcessStatus(record.processStatus),
     reportStatus: normalizeReportStatus(record.reportStatus),
     createdAt: record.createdAt || "",
     updatedAt: record.updatedAt || "",
   };
+};
+const activeDefectImageUrl = computed(() => activeDefectImageUrls.value[activeDefectImageIndex.value] || "");
+const canShowPreviousDefectImage = computed(() => activeDefectImageIndex.value > 0);
+const canShowNextDefectImage = computed(() => activeDefectImageIndex.value < activeDefectImageUrls.value.length - 1);
+
+const openDefectImagePreview = (record: HotspotRecord) => {
+  console.log("点击查看缺陷图片 record:", record);
+  console.log("record.defectImagePaths:", record.defectImagePaths);
+  console.log("record.defectImageUrls:", record.defectImageUrls);
+
+  if (record.defectImageUrls.length === 0) {
+    console.warn("当前记录没有可预览的缺陷图片");
+    return;
+  }
+
+  activeDefectImageUrls.value = record.defectImageUrls;
+  activeDefectImageIndex.value = 0;
+  isDefectImagePreviewOpen.value = true;
+
+  console.log("activeDefectImageUrls:", activeDefectImageUrls.value);
+  console.log("activeDefectImageIndex:", activeDefectImageIndex.value);
+  console.log("isDefectImagePreviewOpen:", isDefectImagePreviewOpen.value);
+  console.log("activeDefectImageUrl:", activeDefectImageUrl.value);
+};
+
+const closeDefectImagePreview = () => {
+  isDefectImagePreviewOpen.value = false;
+  activeDefectImageUrls.value = [];
+  activeDefectImageIndex.value = 0;
+};
+
+const showPreviousDefectImage = () => {
+  if (!canShowPreviousDefectImage.value) {
+    return;
+  }
+
+  activeDefectImageIndex.value -= 1;
+};
+
+const showNextDefectImage = () => {
+  if (!canShowNextDefectImage.value) {
+    return;
+  }
+
+  activeDefectImageIndex.value += 1;
+};
+
+const handleDefectImagePreviewKeydown = (event: KeyboardEvent) => {
+  if (event.key === "Escape") {
+    closeDefectImagePreview();
+  }
+};
+
+const handleHotspotTableWheel = (event: WheelEvent) => {
+  if (Math.abs(event.deltaY) > Math.abs(event.deltaX)) {
+    const tableElement = hotspotTableScrollRef.value;
+
+    if (tableElement) {
+      event.preventDefault();
+      tableElement.scrollTop += event.deltaY;
+    }
+  }
 };
 
 const refreshRecordsFromApiRecords = (apiRecords: HotspotManagementApiRecord[]) => {
@@ -478,6 +677,7 @@ const openReportFile = async (record: HotspotRecord) => {
 
 const closeRecordDetail = () => {
   selectedRecord.value = null;
+  closeDefectImagePreview();
 };
 
 const closeForm = () => {
@@ -571,7 +771,12 @@ const formatDuration = (duration: number) => {
 };
 
 onMounted(() => {
+  window.addEventListener("keydown", handleDefectImagePreviewKeydown);
   void fetchHotspotRecords();
+});
+
+onBeforeUnmount(() => {
+  window.removeEventListener("keydown", handleDefectImagePreviewKeydown);
 });
 </script>
 
@@ -755,9 +960,9 @@ onMounted(() => {
   overflow-x: auto;
   overflow-y: hidden;
   border-radius: 8px;
-  padding-bottom: 8px;
+  padding-bottom: 0;
   scrollbar-color: #b8c7dc #eef3fa;
-  scrollbar-width: thin;
+  scrollbar-width: auto;
 }
 
 /* 检测记录表格：使用原生 table 语义，便于列标题和单元格对齐。 */
@@ -765,7 +970,7 @@ onMounted(() => {
   width: max-content;
   min-width: 100%;
   border-collapse: separate;
-  border-spacing: 0 6px;
+  border-spacing: 0;
   table-layout: auto;
 }
 
@@ -775,6 +980,11 @@ onMounted(() => {
 
 .hotspot-table-scroll::-webkit-scrollbar {
   height: 10px;
+}
+
+.hotspot-table-scroll::-webkit-scrollbar:vertical {
+  width: 0;
+  display: none;
 }
 
 .hotspot-table-scroll::-webkit-scrollbar-track {
@@ -821,13 +1031,14 @@ onMounted(() => {
   position: sticky;
   right: 0;
   z-index: 2;
-  border-right: 1px solid rgba(224, 232, 243, 0.85);
+  border-right: 1px solid rgba(224, 232, 243, 0.42);
   border-radius: 0 8px 8px 0;
   padding: 6px 12px;
-  background: #ffffff;
+  background: rgba(255, 255, 255, 0.72);
+  backdrop-filter: blur(10px);
   box-shadow:
-    -1px 0 0 rgba(224, 232, 243, 0.9),
-    -10px 0 16px rgba(255, 255, 255, 0.96);
+    -1px 0 0 rgba(224, 232, 243, 0.46),
+    -14px 0 22px rgba(255, 255, 255, 0.58);
 }
 
 .table-head {
@@ -840,20 +1051,23 @@ onMounted(() => {
 .table-head > th {
   position: sticky;
   top: 0;
-  z-index: 4;
+  z-index: 30;
   height: 32px;
   background: #f5f8fd;
   font: inherit;
 }
 
 .table-head th:last-child {
+  position: sticky;
+  top: 0;
   right: 0;
-  z-index: 6;
-  background: #f5f8fd;
+  z-index: 40;
+  background:
+    linear-gradient(90deg, rgba(245, 248, 253, 0.18), rgba(245, 248, 253, 0.74) 18px),
+    rgba(245, 248, 253, 0.74);
+  backdrop-filter: blur(10px);
   text-align: center;
-  box-shadow:
-    -1px 0 0 rgba(224, 232, 243, 0.9),
-    -10px 0 16px rgba(245, 248, 253, 0.96);
+  box-shadow: -12px 0 18px rgba(245, 248, 253, 0.48);
 }
 
 .record-code {
@@ -862,6 +1076,48 @@ onMounted(() => {
 
 .cell-text {
   white-space: nowrap;
+}
+
+.table-row > th:nth-child(7),
+.table-row > td.defect-image-cell {
+  min-width: 84px;
+  padding-right: 10px;
+  text-align: center;
+}
+
+.table-row > th:nth-child(6),
+.table-row > td:nth-child(6) {
+  text-align: center;
+}
+
+.defect-image-view-button {
+  height: 28px;
+  border: 1px solid rgba(36, 111, 212, 0.26);
+  border-radius: 999px;
+  background: #e9f2ff;
+  color: #246fd4;
+  padding: 0 12px;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.defect-image-view-button:hover,
+.defect-image-view-button:focus-visible {
+  border-color: rgba(36, 111, 212, 0.44);
+  background: #dcecff;
+  outline: none;
+}
+
+.defect-image-empty {
+  min-width: 52px;
+  height: 28px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: #8a9ab0;
+  font-weight: 700;
 }
 
 .record-link {
@@ -938,7 +1194,7 @@ onMounted(() => {
 .row-actions button,
 .ghost-icon {
   border: 0;
-  background: transparent;
+  background: rgba(255, 255, 255, 0.28);
   color: #101827;
   padding: 4px;
   display: inline-flex;
@@ -1136,6 +1392,125 @@ onMounted(() => {
   background: #eef3fb;
   color: #7c8da5;
   cursor: not-allowed;
+}
+
+.image-preview-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  padding: 42px;
+  background: rgba(15, 23, 42, 0.72);
+  backdrop-filter: blur(8px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.image-preview-content {
+  max-width: min(1180px, calc(100vw - 96px));
+  max-height: calc(100vh - 96px);
+  width: auto;
+  height: auto;
+  object-fit: contain;
+  border-radius: 14px;
+  background: #ffffff;
+  box-shadow: 0 28px 80px rgba(0, 0, 0, 0.36);
+}
+
+.image-preview-close {
+  position: fixed;
+  top: 24px;
+  right: 28px;
+  z-index: 10000;
+  width: 38px;
+  height: 38px;
+  border: 1px solid rgba(255, 255, 255, 0.34);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.92);
+  color: #172033;
+  font-size: 26px;
+  line-height: 1;
+  cursor: pointer;
+  box-shadow: 0 12px 28px rgba(0, 0, 0, 0.22);
+}
+
+.image-preview-close:hover {
+  background: #ffffff;
+  color: #1f66ed;
+}
+
+.image-preview-close:focus,
+.image-preview-close:focus-visible {
+  outline: none;
+  box-shadow:
+    0 0 0 3px rgba(255, 255, 255, 0.28),
+    0 12px 28px rgba(0, 0, 0, 0.22);
+}
+
+.image-preview-nav {
+  position: fixed;
+  top: 50%;
+  z-index: 10000;
+  width: 42px;
+  height: 42px;
+  border: 1px solid rgba(255, 255, 255, 0.34);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.92);
+  color: #172033;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 34px;
+  line-height: 1;
+  transform: translateY(-50%);
+  cursor: pointer;
+  box-shadow: 0 12px 28px rgba(0, 0, 0, 0.22);
+}
+
+.image-preview-nav:hover {
+  background: #ffffff;
+  color: #1f66ed;
+}
+
+.image-preview-prev {
+  left: 28px;
+}
+
+.image-preview-next {
+  right: 28px;
+}
+
+.image-preview-dots {
+  position: fixed;
+  left: 50%;
+  bottom: 26px;
+  z-index: 10000;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  transform: translateX(-50%);
+  padding: 7px 10px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.78);
+  box-shadow: 0 8px 18px rgba(0, 0, 0, 0.18);
+  backdrop-filter: blur(6px);
+}
+
+.image-preview-dot {
+  width: 8px;
+  height: 8px;
+  border: 0;
+  border-radius: 999px;
+  padding: 0;
+  background: rgba(125, 143, 166, 0.45);
+  cursor: pointer;
+}
+
+.image-preview-dot.is-active {
+  width: 9px;
+  height: 9px;
+  background: #16a66a;
+  box-shadow: 0 0 0 3px rgba(22, 166, 106, 0.14);
 }
 
 .hotspot-detail-list {

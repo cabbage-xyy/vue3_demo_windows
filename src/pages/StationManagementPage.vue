@@ -955,11 +955,13 @@ onMounted(() => {
 }
 
 .station-table {
+  position: relative;
   min-height: 0;
   height: 100%;
   overflow-x: auto;
   overflow-y: hidden;
   border-radius: 8px;
+  background: #ffffff;
   scrollbar-width: auto;
   scrollbar-color: rgba(115, 139, 171, 0.42) transparent;
   padding-bottom: 0;
@@ -992,13 +994,13 @@ onMounted(() => {
 .table-content {
   display: table;
   width: max-content;
-  min-width: 100%;
+  min-width: max-content;
   border-collapse: separate;
   border-spacing: 0 6px;
 }
 
 .station-table::-webkit-scrollbar-corner {
-  background: transparent;
+  background: #ffffff;
 }
 
 .table-body {
@@ -1015,7 +1017,7 @@ onMounted(() => {
 .table-row > * {
   display: table-cell;
   height: 48px;
-  padding: 0 20px;
+  padding: 0 10px;
   border-top: 1px solid rgba(224, 232, 243, 0.85);
   border-bottom: 1px solid rgba(224, 232, 243, 0.85);
   background: #ffffff;
@@ -1023,27 +1025,29 @@ onMounted(() => {
   white-space: nowrap;
 }
 
-.table-row > * + * {
-  padding-left: 20px;
-}
-
 .table-row > *:first-child {
   border-left: 1px solid rgba(224, 232, 243, 0.85);
   border-radius: 8px 0 0 8px;
+  padding-left: 14px;
+}
+
+.table-row > *:nth-child(4) {
+  text-align: center;
 }
 
 .table-row > *:last-child {
   position: sticky;
   right: 0;
   z-index: 2;
-  border-right: 1px solid rgba(224, 232, 243, 0.85);
+  border-right: 1px solid rgba(224, 232, 243, 0.42);
   border-radius: 0 8px 8px 0;
   padding-right: 12px;
   padding-left: 12px;
-  background: #ffffff;
+  background: rgba(255, 255, 255, 0.72);
+  backdrop-filter: blur(10px);
   box-shadow:
-    -1px 0 0 rgba(224, 232, 243, 0.9),
-    -10px 0 16px rgba(255, 255, 255, 0.96);
+    -1px 0 0 rgba(224, 232, 243, 0.46),
+    -14px 0 22px rgba(255, 255, 255, 0.58);
 }
 
 .table-head {
@@ -1055,19 +1059,22 @@ onMounted(() => {
 .table-head > * {
   position: sticky;
   top: 0;
-  z-index: 4;
+  z-index: 30;
   height: 32px;
   background: #f5f8fd;
 }
 
-.table-head span:last-child {
+.table-head > *:last-child {
+  position: sticky;
+  top: 0;
   right: 0;
-  z-index: 6;
-  background: #f5f8fd;
+  z-index: 40;
+  background:
+    linear-gradient(90deg, rgba(245, 248, 253, 0.18), rgba(245, 248, 253, 0.74) 18px),
+    rgba(245, 248, 253, 0.74);
+  backdrop-filter: blur(10px);
   text-align: center;
-  box-shadow:
-    -1px 0 0 rgba(224, 232, 243, 0.9),
-    -10px 0 16px rgba(245, 248, 253, 0.96);
+  box-shadow: -12px 0 18px rgba(245, 248, 253, 0.48);
 }
 
 .station-name {
@@ -1156,7 +1163,7 @@ onMounted(() => {
   height: 28px;
   border: 0;
   border-radius: 8px;
-  background: #ffffff;
+  background: rgba(255, 255, 255, 0.74);
   color: #0b0f18;
   display: inline-flex;
   vertical-align: middle;

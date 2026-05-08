@@ -18,7 +18,47 @@
           @ended="handleVideoEnded"
           @click="togglePlay"
         ></video>
-        <img v-else class="video-media" :src="previewImageUrl" :alt="video.title" />
+        <img
+          v-else
+          class="video-media"
+          :class="{ 'is-clickable-preview': isResultImageSequence }"
+          :src="previewImageUrl"
+          :alt="video.title"
+          @click="openImagePreview"
+        />
+
+        <template v-if="isResultImageSequence && resultImageUrls.length > 1">
+          <button
+            v-if="canShowPreviousImage"
+            type="button"
+            class="image-nav image-nav-prev"
+            aria-label="上一张检测结果图片"
+            @click.stop="showPreviousImage"
+          >
+            ‹
+          </button>
+          <button
+            v-if="canShowNextImage"
+            type="button"
+            class="image-nav image-nav-next"
+            aria-label="下一张检测结果图片"
+            @click.stop="showNextImage"
+          >
+            ›
+          </button>
+
+          <div class="image-dots" aria-label="检测结果图片切换指示器">
+            <button
+              v-for="(_, index) in resultImageUrls"
+              :key="index"
+              type="button"
+              class="image-dot"
+              :class="{ 'is-active': index === activeImageIndex }"
+              :aria-label="`查看第 ${index + 1} 张检测结果图片`"
+              @click.stop="activeImageIndex = index"
+            ></button>
+          </div>
+        </template>
 
         <div v-if="showResultOverlay" class="hotspot-layer" aria-hidden="true">
           <span class="hotspot-marker marker-primary"></span>
@@ -59,11 +99,32 @@
         </div>
       </footer>
     </div>
+    <Teleport to="body">
+      <div
+        v-if="isPreviewOpen"
+        class="image-preview-overlay"
+        role="dialog"
+        aria-modal="true"
+        aria-label="检测结果图片预览"
+        @click.self="closeImagePreview"
+      >
+        <button
+          type="button"
+          class="image-preview-close"
+          aria-label="关闭图片预览"
+          @click="closeImagePreview"
+        >
+          ×
+        </button>
+
+        <img class="image-preview-content" :src="previewImageUrl" :alt="video.title" />
+      </div>
+    </Teleport>
   </article>
 </template>
 
 <script setup lang="ts">
-import { computed, nextTick, onMounted, ref, watch } from "vue";
+import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from "vue";
 import BaseIcon from "@/components/base/BaseIcon.vue";
 import type { VideoCard } from "@/features/hotspot-detection/types/dashboard";
 
@@ -75,16 +136,20 @@ defineOptions({
 interface DetectionVideoPlayerProps {
   video: VideoCard;
   mediaUrl?: string | null;
+  mediaUrls?: string[];
 }
 
 const props = withDefaults(defineProps<DetectionVideoPlayerProps>(), {
   mediaUrl: null,
+  mediaUrls: () => [],
 });
 
 const videoRef = ref<HTMLVideoElement | null>(null);
 const currentTime = ref(0);
 const duration = ref(0);
 const isPlaying = ref(false);
+const activeImageIndex = ref(0);
+const isPreviewOpen = ref(false);
 
 // 播放控制状态只在本卡片内维护，不向父组件暴露视频播放器细节。
 const formatTime = (seconds: number) => {
@@ -110,11 +175,26 @@ const realVideoProgress = computed(() => {
 const clampedProgress = computed(() => Math.max(0, Math.min(100, realVideoProgress.value)));
 const progressStyle = computed(() => ({ width: `${clampedProgress.value}%` }));
 const knobStyle = computed(() => ({ left: `${clampedProgress.value}%` }));
-const showResultOverlay = computed(() => props.video.id === "result-video");
+const showResultOverlay = computed(() => false);
 const isResultImageSequence = computed(() => props.video.id === "result-video");
+const resultImageUrls = computed(() => {
+  if (!isResultImageSequence.value) {
+    return [];
+  }
+
+  const urls = props.mediaUrls.filter(Boolean);
+
+  if (urls.length > 0) {
+    return urls;
+  }
+
+  return props.mediaUrl ? [props.mediaUrl] : [];
+});
+const canShowPreviousImage = computed(() => activeImageIndex.value > 0);
+const canShowNextImage = computed(() => activeImageIndex.value < resultImageUrls.value.length - 1);
 const previewImageUrl = computed(() => {
-  if (isResultImageSequence.value && props.mediaUrl) {
-    return props.mediaUrl;
+  if (isResultImageSequence.value) {
+    return resultImageUrls.value[activeImageIndex.value] || props.video.imageUrl;
   }
 
   return props.video.imageUrl;
@@ -199,12 +279,56 @@ const seekByTimeline = (event: MouseEvent) => {
   currentTime.value = videoRef.value.currentTime;
 };
 
+const showPreviousImage = () => {
+  if (!canShowPreviousImage.value) {
+    return;
+  }
+
+  activeImageIndex.value -= 1;
+};
+
+const showNextImage = () => {
+  if (!canShowNextImage.value) {
+    return;
+  }
+
+  activeImageIndex.value += 1;
+};
+
+const openImagePreview = () => {
+  if (!isResultImageSequence.value || !previewImageUrl.value) {
+    return;
+  }
+
+  isPreviewOpen.value = true;
+};
+
+const closeImagePreview = () => {
+  isPreviewOpen.value = false;
+};
+
+const handlePreviewKeydown = (event: KeyboardEvent) => {
+  if (event.key === "Escape") {
+    closeImagePreview();
+  }
+};
+
+watch(
+  () => resultImageUrls.value.join("|"),
+  () => {
+    activeImageIndex.value = 0;
+    isPreviewOpen.value = false;
+  },
+);
+
 watch(
   () => props.mediaUrl,
   async () => {
     currentTime.value = 0;
     duration.value = 0;
     isPlaying.value = false;
+    activeImageIndex.value = 0;
+    isPreviewOpen.value = false;
 
     await nextTick();
     window.setTimeout(() => {
@@ -215,9 +339,15 @@ watch(
 );
 
 onMounted(() => {
+  window.addEventListener("keydown", handlePreviewKeydown);
+
   window.setTimeout(() => {
     void autoPlaySourceVideo();
   }, 120);
+});
+
+onBeforeUnmount(() => {
+  window.removeEventListener("keydown", handlePreviewKeydown);
 });
 </script>
 
@@ -287,6 +417,131 @@ video.video-media {
 
 .result-image-card .video-media {
   cursor: default;
+}
+
+.result-image-card .media-frame {
+  background: #ffffff;
+}
+
+.result-image-card .video-media {
+  object-fit: contain;
+}
+
+.result-image-card .video-media.is-clickable-preview {
+  cursor: zoom-in;
+}
+
+.image-preview-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  padding: 42px;
+  background: rgba(15, 23, 42, 0.72);
+  backdrop-filter: blur(8px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.image-preview-content {
+  max-width: min(1180px, calc(100vw - 96px));
+  max-height: calc(100vh - 96px);
+  width: auto;
+  height: auto;
+  object-fit: contain;
+  border-radius: 14px;
+  background: #ffffff;
+  box-shadow: 0 28px 80px rgba(0, 0, 0, 0.36);
+}
+
+.image-preview-close {
+  position: fixed;
+  top: 24px;
+  right: 28px;
+  z-index: 10000;
+  width: 38px;
+  height: 38px;
+  border: 1px solid rgba(255, 255, 255, 0.34);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.92);
+  color: #172033;
+  font-size: 26px;
+  line-height: 1;
+  cursor: pointer;
+  box-shadow: 0 12px 28px rgba(0, 0, 0, 0.22);
+}
+
+.image-preview-close:hover {
+  background: #ffffff;
+  color: #1f66ed;
+}
+
+.image-nav {
+  position: absolute;
+  top: 50%;
+  z-index: 3;
+  width: 34px;
+  height: 34px;
+  border: 1px solid rgba(214, 225, 240, 0.9);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.88);
+  color: #1f2c42;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 28px;
+  line-height: 1;
+  transform: translateY(-50%);
+  cursor: pointer;
+  box-shadow: 0 8px 18px rgba(21, 39, 68, 0.16);
+  backdrop-filter: blur(6px);
+}
+
+.image-nav:hover {
+  background: #ffffff;
+  color: #1f66ed;
+  box-shadow: 0 10px 22px rgba(31, 102, 237, 0.2);
+}
+
+.image-nav-prev {
+  left: 12px;
+}
+
+.image-nav-next {
+  right: 12px;
+}
+
+.image-dots {
+  position: absolute;
+  left: 50%;
+  bottom: 10px;
+  z-index: 3;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  transform: translateX(-50%);
+  padding: 5px 8px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.72);
+  box-shadow: 0 6px 16px rgba(21, 39, 68, 0.12);
+  backdrop-filter: blur(6px);
+}
+
+.image-dot {
+  width: 7px;
+  height: 7px;
+  border: 0;
+  border-radius: 999px;
+  padding: 0;
+  background: rgba(125, 143, 166, 0.45);
+  cursor: pointer;
+}
+
+.image-dot.is-active {
+  width: 8px;
+  height: 8px;
+  background: #16a66a;
+  box-shadow: 0 0 0 3px rgba(22, 166, 106, 0.14);
 }
 
 .media-frame::after {
