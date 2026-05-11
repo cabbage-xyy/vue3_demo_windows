@@ -383,7 +383,18 @@ const pickFirstString = (value: unknown): string => {
 
   if (value && typeof value === "object") {
     const record = value as Record<string, unknown>;
-    return pickFirstString(record.path ?? record.url ?? record.image_path ?? record.frame_path);
+    return pickFirstString(
+      record.path ??
+        record.url ??
+        record.image_path ??
+        record.imagePath ??
+        record.frame_path ??
+        record.framePath ??
+        record.file_path ??
+        record.filePath ??
+        record.output_path ??
+        record.outputPath,
+    );
   }
 
   return "";
@@ -400,40 +411,83 @@ const pickStringList = (value: unknown): string[] => {
 
   if (value && typeof value === "object") {
     const record = value as Record<string, unknown>;
-    return pickStringList(record.path ?? record.url ?? record.image_path ?? record.frame_path);
+    return pickStringList(
+      record.path ??
+        record.url ??
+        record.image_path ??
+        record.imagePath ??
+        record.frame_path ??
+        record.framePath ??
+        record.file_path ??
+        record.filePath ??
+        record.output_path ??
+        record.outputPath,
+    );
   }
 
   return [];
 };
 
+const pickFromPayload = (data: Record<string, unknown>, keys: string[]): string[] => {
+  const candidates: unknown[] = [];
+
+  keys.forEach((key) => {
+    candidates.push(data[key]);
+  });
+
+  const nestedPayloads = [data.data, data.result, data.payload, data.detail];
+
+  nestedPayloads.forEach((payload) => {
+    if (payload && typeof payload === "object") {
+      const record = payload as Record<string, unknown>;
+      keys.forEach((key) => {
+        candidates.push(record[key]);
+      });
+    }
+  });
+
+  return candidates.flatMap((value) => pickStringList(value)).filter(Boolean);
+};
+
 const pickResultImagePath = (data: Record<string, unknown>) => {
-  return pickFirstString(
-    data.hotspot_image_paths ??
-      data.report_image_paths ??
-      data.result_image_path ??
-      data.result_frame_path ??
-      data.image_path ??
-      data.result_image_paths ??
-      data.result_frame_paths ??
-      data.result_images ??
-      data.result_frames,
-  );
+  return pickResultImagePaths(data)[0] ?? "";
 };
 
 const pickResultImagePaths = (data: Record<string, unknown>) => {
-  const hotspotImagePaths = pickStringList(data.hotspot_image_paths);
-  const reportImagePaths = pickStringList(data.report_image_paths);
-  const fallbackImagePaths = pickStringList(
-    data.result_image_paths ??
-      data.result_frame_paths ??
-      data.result_images ??
-      data.result_frames ??
-      data.result_image_path ??
-      data.result_frame_path ??
-      data.image_path,
-  );
+  const imagePathKeys = [
+    "hotspot_image_paths",
+    "hotspotImagePaths",
+    "hotspot_images",
+    "hotspotImages",
+    "defect_image_paths",
+    "defectImagePaths",
+    "defect_images",
+    "defectImages",
+    "report_image_paths",
+    "reportImagePaths",
+    "report_images",
+    "reportImages",
+    "result_image_paths",
+    "resultImagePaths",
+    "result_frame_paths",
+    "resultFramePaths",
+    "result_images",
+    "resultImages",
+    "result_frames",
+    "resultFrames",
+    "result_image_path",
+    "resultImagePath",
+    "result_frame_path",
+    "resultFramePath",
+    "image_paths",
+    "imagePaths",
+    "image_path",
+    "imagePath",
+    "frame_path",
+    "framePath",
+  ];
 
-  return [...hotspotImagePaths, ...reportImagePaths, ...fallbackImagePaths];
+  return Array.from(new Set(pickFromPayload(data, imagePathKeys)));
 };
 
 const importVideo = async () => {
@@ -838,11 +892,6 @@ onBeforeUnmount(() => {
   window.removeEventListener("hotspot-selection-change", syncSelectedRoofContext);
   stopPollingDetectionStatus();
   stopDurationTimer();
-  importedVideo.value = null;
-  resultImageUrl.value = "";
-  resultImagePath.value = "";
-  resultImagePaths.value = [];
-  resultImageUrls.value = [];
 });
 </script>
 

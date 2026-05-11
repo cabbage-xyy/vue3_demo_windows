@@ -211,6 +211,16 @@
               <dd>{{ formatDuration(recordDurationValue(selectedRecord)) }}</dd>
             </div>
             <div>
+              <dt>异常组件数</dt>
+              <dd>{{ selectedRecord.hotspotComponentCount }}</dd>
+            </div>
+          </dl>
+        </section>
+
+        <section class="detail-section">
+          <h3>检测结果</h3>
+          <dl class="detail-grid">
+            <div>
               <dt>检测报告</dt>
               <dd>
                 <button
@@ -222,20 +232,6 @@
                   查看报告
                 </button>
               </dd>
-            </div>
-          </dl>
-        </section>
-
-        <section class="detail-section">
-          <h3>检测结果</h3>
-          <dl class="detail-grid">
-            <div>
-              <dt>异常组件数</dt>
-              <dd>{{ selectedRecord.hotspotComponentCount }}</dd>
-            </div>
-            <div>
-              <dt>缺陷类型</dt>
-              <dd>{{ selectedRecord.defectSummary }}</dd>
             </div>
             <div>
               <dt>缺陷图片</dt>
@@ -1030,7 +1026,7 @@ onBeforeUnmount(() => {
 .table-row > td:last-child {
   position: sticky;
   right: 0;
-  z-index: 2;
+  z-index: 10;
   border-right: 1px solid rgba(224, 232, 243, 0.42);
   border-radius: 0 8px 8px 0;
   padding: 6px 12px;
@@ -1051,7 +1047,7 @@ onBeforeUnmount(() => {
 .table-head > th {
   position: sticky;
   top: 0;
-  z-index: 30;
+  z-index: 10;
   height: 32px;
   background: #f5f8fd;
   font: inherit;
@@ -1061,7 +1057,7 @@ onBeforeUnmount(() => {
   position: sticky;
   top: 0;
   right: 0;
-  z-index: 40;
+  z-index: 20;
   background:
     linear-gradient(90deg, rgba(245, 248, 253, 0.18), rgba(245, 248, 253, 0.74) 18px),
     rgba(245, 248, 253, 0.74);
@@ -1229,7 +1225,7 @@ onBeforeUnmount(() => {
 .detail-overlay {
   position: fixed;
   inset: 0;
-  z-index: 30;
+  z-index: 1000;
   background: rgba(15, 23, 38, 0.28);
   display: flex;
 }
@@ -1254,6 +1250,8 @@ onBeforeUnmount(() => {
 }
 
 .detail-panel {
+  position: relative;
+  z-index: 1001;
   width: min(980px, 92vw);
   max-height: min(760px, 86vh);
   border-radius: 10px;

@@ -122,13 +122,17 @@
 
     <!-- 子路由页面出口：页面主体布局由各 page/feature 自己负责。 -->
     <main class="app-content">
-      <RouterView />
+      <RouterView v-slot="{ Component }">
+        <KeepAlive include="HotspotDetectionPage">
+          <component :is="Component" />
+        </KeepAlive>
+      </RouterView>
     </main>
   </div>
 </template>
 
 <script setup lang="ts">
-import { computed, onBeforeUnmount, onMounted, ref } from "vue";
+import { KeepAlive, computed, onBeforeUnmount, onMounted, ref } from "vue";
 import { RouterLink, RouterView, useRoute } from "vue-router";
 import { appNavigationItems } from "@/app/navigation";
 import BaseIcon from "@/components/base/BaseIcon.vue";
@@ -164,6 +168,21 @@ interface StationRecord {
   stationName: string;
   roofName: string;
 }
+
+const pickTextField = (item: Record<string, unknown>, raw: Record<string, unknown>, keys: string[]) => {
+  for (const key of keys) {
+    const value = item[key] ?? raw[key];
+
+    if (value !== undefined && value !== null) {
+      const text = String(value).trim();
+      if (text) {
+        return text;
+      }
+    }
+  }
+
+  return "";
+};
 
 const stationRecords = ref<StationRecord[]>([]);
 const companyOptions = ref<CompanyOption[]>([]);
@@ -233,7 +252,17 @@ const fetchStationRecords = async () => {
     }
 
     const result = await response.json();
-    const data = Array.isArray(result.data) ? result.data : [];
+    console.log("[顶部筛选] 电站管理接口返回：", result);
+
+    const data = Array.isArray(result)
+      ? result
+      : Array.isArray(result.data)
+        ? result.data
+        : Array.isArray(result.records)
+          ? result.records
+          : Array.isArray(result.items)
+            ? result.items
+            : [];
 
     stationRecords.value = data
       .map((item: Record<string, unknown>) => {
@@ -242,12 +271,33 @@ const fetchStationRecords = async () => {
           : {};
 
         return {
-          companyName: String(item.companyName || item.company_name || raw.name || "").trim(),
-          stationName: String(item.stationName || item.station_name || raw.station_name || "").trim(),
-          roofName: String(item.roofName || item.roof_name || raw.roof_name || "").trim(),
+          companyName: pickTextField(item, raw, [
+            "companyName",
+            "company_name",
+            "company",
+            "companyId",
+            "company_id",
+            "name",
+          ]),
+          stationName: pickTextField(item, raw, [
+            "stationName",
+            "station_name",
+            "station",
+            "powerStationName",
+            "power_station_name",
+          ]),
+          roofName: pickTextField(item, raw, [
+            "roofName",
+            "roof_name",
+            "roof",
+            "roofTitle",
+            "roof_title",
+          ]),
         };
       })
       .filter((item: StationRecord) => item.companyName && item.stationName && item.roofName);
+
+    console.log("[顶部筛选] 解析后的站点记录：", stationRecords.value);
 
     rebuildCompanyOptions();
     rebuildStationOptions();
@@ -325,10 +375,12 @@ onMounted(() => {
   resetHotspotDetectionHeaderState();
   void fetchStationRecords();
   window.addEventListener("hotspot-process-status-change", syncProcessStatusText);
+  window.addEventListener("focus", fetchStationRecords);
 });
 
 onBeforeUnmount(() => {
   window.removeEventListener("hotspot-process-status-change", syncProcessStatusText);
+  window.removeEventListener("focus", fetchStationRecords);
 });
 </script>
 

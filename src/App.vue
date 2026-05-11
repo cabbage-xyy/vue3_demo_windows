@@ -1,9 +1,14 @@
 <template>
   <!-- 应用根节点只负责挂载路由视图，具体页面外壳由 layout 管理。 -->
-  <RouterView />
+  <RouterView v-slot="{ Component }">
+    <KeepAlive include="HotspotDetectionPage">
+      <component :is="Component" />
+    </KeepAlive>
+  </RouterView>
 </template>
 
 <script setup lang="ts">
+import { KeepAlive } from "vue";
 import { RouterView } from "vue-router";
 
 defineOptions({
