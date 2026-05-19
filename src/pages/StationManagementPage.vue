@@ -767,23 +767,24 @@ onMounted(() => {
 }
 
 .primary-command {
-  height: 40px;
-  padding: 0 16px;
-  border: 1px solid rgba(65, 145, 255, 0.78);
-  border-radius: 16px;
+  height: 36px;
+  min-width: 112px;
+  padding: 0 14px;
+  border: 1px solid rgba(47, 130, 255, 0.68);
+  border-radius: 999px;
   background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.34), rgba(255, 255, 255, 0) 46%),
-    linear-gradient(135deg, #59adff 0%, #287ef4 52%, #155ed6 100%);
+    linear-gradient(180deg, rgba(255, 255, 255, 0.22), rgba(255, 255, 255, 0) 52%),
+    linear-gradient(135deg, #459cff 0%, #1f6fed 100%);
   color: #ffffff;
   box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.42),
-    inset 0 -1px 0 rgba(12, 73, 170, 0.22),
-    0 12px 24px rgba(35, 105, 239, 0.28),
-    0 3px 8px rgba(15, 23, 42, 0.10);
+    inset 0 1px 0 rgba(255, 255, 255, 0.30),
+    0 8px 16px rgba(35, 105, 239, 0.20);
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 8px;
+  gap: 7px;
+  font-size: 13px;
+  line-height: 1;
   white-space: nowrap;
   transform: translateY(0);
   transition:
@@ -794,31 +795,28 @@ onMounted(() => {
 }
 
 .primary-command:hover {
-  filter: brightness(1.04);
+  filter: brightness(1.03);
   transform: translateY(0);
-  border-color: rgba(92, 165, 255, 0.92);
+  border-color: rgba(75, 150, 255, 0.82);
   box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.48),
-    inset 0 -1px 0 rgba(12, 73, 170, 0.22),
-    0 14px 26px rgba(35, 105, 239, 0.30),
-    0 3px 8px rgba(15, 23, 42, 0.10);
+    inset 0 1px 0 rgba(255, 255, 255, 0.34),
+    0 9px 18px rgba(35, 105, 239, 0.23);
 }
 
 .primary-command:active {
   filter: brightness(0.98);
-  transform: translateY(0);
+  transform: translateY(1px);
   box-shadow:
     inset 0 1px 2px rgba(12, 73, 170, 0.22),
-    0 8px 16px rgba(35, 105, 239, 0.22),
-    0 2px 5px rgba(15, 23, 42, 0.08);
+    0 5px 12px rgba(35, 105, 239, 0.18);
 }
 
 .primary-command:focus-visible {
   outline: none;
   box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.42),
+    inset 0 1px 0 rgba(255, 255, 255, 0.30),
     0 0 0 3px rgba(47, 130, 255, 0.18),
-    0 12px 24px rgba(35, 105, 239, 0.28);
+    0 8px 16px rgba(35, 105, 239, 0.20);
 }
 
 /* 概览区：只承载列表派生指标，避免和表格筛选状态耦合。 */
