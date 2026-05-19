@@ -18,6 +18,59 @@
           @ended="handleVideoEnded"
           @click="togglePlay"
         ></video>
+        <div v-else-if="isResultPanelFailed" class="result-state-panel result-state-panel--failed" role="status">
+          <span class="state-dot state-dot--failed"></span>
+          <p>检测失败</p>
+          <strong>请检查检测任务或重新启动检测</strong>
+        </div>
+        <div v-else-if="showAiDetectionPanel" class="ai-detection-panel" aria-live="polite">
+          <div class="scan-surface" aria-hidden="true">
+            <span class="scan-line"></span>
+            <span class="pulse-dot"></span>
+          </div>
+
+          <div class="ai-detection-content">
+            <p class="ai-kicker">AI Detection</p>
+            <h3>AI 正在分析光伏组件热斑异常</h3>
+            <Transition name="stage-fade" mode="out-in">
+              <p :key="activeStageText" class="active-stage-text">
+                {{ activeStageText }}
+              </p>
+            </Transition>
+            <div
+              class="ai-progress"
+              role="progressbar"
+              :aria-valuenow="normalizedDetectionProgress"
+              aria-valuemin="0"
+              aria-valuemax="100"
+              aria-label="AI 检测流程进度"
+            >
+              <span :style="{ width: `${normalizedDetectionProgress}%` }"></span>
+            </div>
+
+            <div class="ai-progress-meta">
+              <span>{{ normalizedDetectionProgress }}%</span>
+              <span>{{ activeStageStepText }}</span>
+            </div>
+
+            <div class="stage-dots" aria-hidden="true">
+              <span
+                v-for="(_, index) in aiDetectionStages"
+                :key="index"
+                :class="{
+                  'is-complete': index < activeStageIndex,
+                  'is-active': index === activeStageIndex,
+                }"
+              >
+              </span>
+            </div>
+          </div>
+        </div>
+        <div v-else-if="isResultPanelWaiting" class="result-state-panel" role="status">
+          <span class="state-dot"></span>
+          <p>等待检测</p>
+          <strong>导入视频并启动检测后显示结果</strong>
+        </div>
         <img
           v-else
           class="video-media"
@@ -137,11 +190,17 @@ interface DetectionVideoPlayerProps {
   video: VideoCard;
   mediaUrl?: string | null;
   mediaUrls?: string[];
+  detectionProgress?: number;
+  resultPanelState?: "media" | "analyzing" | "failed" | "waiting";
+  showAiDetectionPanel?: boolean;
 }
 
 const props = withDefaults(defineProps<DetectionVideoPlayerProps>(), {
   mediaUrl: null,
   mediaUrls: () => [],
+  detectionProgress: 0,
+  resultPanelState: "media",
+  showAiDetectionPanel: false,
 });
 
 const videoRef = ref<HTMLVideoElement | null>(null);
@@ -177,6 +236,45 @@ const progressStyle = computed(() => ({ width: `${clampedProgress.value}%` }));
 const knobStyle = computed(() => ({ left: `${clampedProgress.value}%` }));
 const showResultOverlay = computed(() => false);
 const isResultImageSequence = computed(() => props.video.id === "result-video");
+const aiDetectionStages = [
+  "AI 模型初始化中",
+  "正在进行全局帧扫描",
+  "正在识别光伏组件区域",
+  "正在检测热斑异常特征",
+  "正在生成检测结果与报告",
+];
+const isResultPanelFailed = computed(() =>
+  isResultImageSequence.value && props.resultPanelState === "failed",
+);
+const isResultPanelWaiting = computed(() =>
+  isResultImageSequence.value && props.resultPanelState === "waiting",
+);
+const normalizedDetectionProgress = computed(() =>
+  Math.max(0, Math.min(99, Math.round(props.detectionProgress))),
+);
+const activeStageIndex = computed(() => {
+  const progress = normalizedDetectionProgress.value;
+
+  if (progress < 10) {
+    return 0;
+  }
+
+  if (progress < 35) {
+    return 1;
+  }
+
+  if (progress < 60) {
+    return 2;
+  }
+
+  if (progress < 85) {
+    return 3;
+  }
+
+  return 4;
+});
+const activeStageText = computed(() => aiDetectionStages[activeStageIndex.value]);
+const activeStageStepText = computed(() => `阶段 ${activeStageIndex.value + 1}/5`);
 const resultImageUrls = computed(() => {
   if (!isResultImageSequence.value) {
     return [];
@@ -429,6 +527,244 @@ video.video-media {
 
 .result-image-card .video-media.is-clickable-preview {
   cursor: zoom-in;
+}
+
+.ai-detection-panel {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+  padding: 22px 26px;
+  overflow: hidden;
+  background:
+    linear-gradient(135deg, rgba(239, 246, 255, 0.94), rgba(248, 251, 255, 0.98)),
+    #f8fbff;
+  display: grid;
+  grid-template-columns: minmax(150px, 0.9fr) minmax(220px, 1.1fr);
+  align-items: center;
+  gap: 24px;
+}
+
+.scan-surface {
+  position: relative;
+  min-width: 0;
+  aspect-ratio: 1.35;
+  border: 1px solid rgba(169, 196, 231, 0.62);
+  border-radius: 8px;
+  background:
+    linear-gradient(rgba(37, 99, 235, 0.08) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(37, 99, 235, 0.08) 1px, transparent 1px),
+    linear-gradient(135deg, rgba(255, 255, 255, 0.82), rgba(229, 239, 252, 0.82));
+  background-size:
+    22px 22px,
+    22px 22px,
+    100% 100%;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.86),
+    0 12px 26px rgba(47, 91, 150, 0.10);
+  overflow: hidden;
+}
+
+.scan-line {
+  position: absolute;
+  left: 12%;
+  right: 12%;
+  top: 18%;
+  height: 2px;
+  border-radius: 999px;
+  background: rgba(37, 99, 235, 0.54);
+  box-shadow: 0 0 18px rgba(37, 99, 235, 0.28);
+  animation: scanMove 2.2s ease-in-out infinite;
+}
+
+.pulse-dot {
+  position: absolute;
+  left: 58%;
+  top: 54%;
+  width: 12px;
+  height: 12px;
+  border-radius: 999px;
+  background: #2f82ff;
+  box-shadow: 0 0 0 8px rgba(47, 130, 255, 0.12);
+  animation: pulseDot 1.6s ease-out infinite;
+}
+
+.ai-detection-content {
+  min-width: 0;
+}
+
+.ai-kicker {
+  margin: 0 0 6px;
+  color: #6b7c95;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0;
+  text-transform: uppercase;
+}
+
+.ai-detection-content h3 {
+  margin: 0 0 8px;
+  color: #162033;
+  font-size: 17px;
+  font-weight: 850;
+  line-height: 1.2;
+}
+
+.active-stage-text {
+  min-height: 22px;
+  margin: 0 0 14px;
+  color: #1f66d8;
+  font-size: 14px;
+  font-weight: 850;
+  line-height: 1.3;
+}
+
+.stage-fade-enter-active,
+.stage-fade-leave-active {
+  transition:
+    opacity 0.22s ease,
+    transform 0.22s ease;
+}
+
+.stage-fade-enter-from {
+  opacity: 0;
+  transform: translateY(5px);
+}
+
+.stage-fade-leave-to {
+  opacity: 0;
+  transform: translateY(-5px);
+}
+
+.ai-progress {
+  position: relative;
+  height: 7px;
+  border-radius: 999px;
+  background: #e5edf8;
+  overflow: hidden;
+}
+
+.ai-progress span {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, #63a8ff, #236fed);
+  transition: width 0.32s ease;
+}
+
+.ai-progress-meta {
+  margin-top: 8px;
+  color: #70839f;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.stage-dots {
+  margin-top: 14px;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+
+.stage-dots span {
+  width: 8px;
+  height: 8px;
+  border-radius: 999px;
+  background: #c9d5e6;
+  flex: 0 0 auto;
+  transition:
+    background 0.22s ease,
+    transform 0.22s ease,
+    box-shadow 0.22s ease;
+}
+
+.stage-dots span.is-complete {
+  background: #28b77b;
+}
+
+.stage-dots span.is-active {
+  background: #2f82ff;
+  transform: scale(1.18);
+  box-shadow: 0 0 0 5px rgba(47, 130, 255, 0.14);
+}
+
+.result-state-panel {
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+  padding: 24px;
+  border: 1px solid rgba(218, 226, 236, 0.92);
+  background:
+    linear-gradient(135deg, rgba(248, 251, 255, 0.96), rgba(255, 255, 255, 0.98)),
+    #ffffff;
+  color: #667085;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  gap: 8px;
+}
+
+.result-state-panel p {
+  margin: 0;
+  color: #172033;
+  font-size: 16px;
+  font-weight: 850;
+}
+
+.result-state-panel strong {
+  color: #7c8da5;
+  font-size: 12px;
+  font-weight: 750;
+}
+
+.state-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 999px;
+  background: #9aa8ba;
+  box-shadow: 0 0 0 7px rgba(154, 168, 186, 0.14);
+}
+
+.result-state-panel--failed {
+  background:
+    linear-gradient(135deg, rgba(255, 245, 246, 0.96), rgba(255, 255, 255, 0.98)),
+    #ffffff;
+}
+
+.result-state-panel--failed p {
+  color: #c92a40;
+}
+
+.state-dot--failed {
+  background: #e0445c;
+  box-shadow: 0 0 0 7px rgba(224, 68, 92, 0.12);
+}
+
+@keyframes scanMove {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+
+  50% {
+    transform: translateY(72px);
+  }
+}
+
+@keyframes pulseDot {
+  0% {
+    box-shadow: 0 0 0 0 rgba(47, 130, 255, 0.26);
+  }
+
+  100% {
+    box-shadow: 0 0 0 16px rgba(47, 130, 255, 0);
+  }
 }
 
 .image-preview-overlay {

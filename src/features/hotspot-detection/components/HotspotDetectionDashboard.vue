@@ -9,6 +9,9 @@
           :video="video"
           :media-url="video.id === 'source-video' ? importedVideo?.url : video.id === 'result-video' ? resultImageUrl : null"
           :media-urls="video.id === 'result-video' ? resultImageUrls : []"
+          :detection-progress="detectionProgress"
+          :result-panel-state="video.id === 'result-video' ? resultPanelState : 'media'"
+          :show-ai-detection-panel="video.id === 'result-video' && shouldShowAiDetectionPanel"
         />
       </div>
 
@@ -219,6 +222,37 @@ const disabledActionIds = computed(() => {
 const modalRunLogs = computed(() =>
   selectedRunLog.value ? [selectedRunLog.value] : runLogs.value,
 );
+const hasDisplayableResultImage = computed(() =>
+  resultImageUrls.value.some(Boolean) || Boolean(resultImageUrl.value),
+);
+const isDetectionInProgressForResult = computed(() => {
+  if (detectionStatus.value === "failed") {
+    return false;
+  }
+
+  return (
+    (detectionStatus.value === "running" && detectionProgress.value < 100) ||
+    (detectionProgress.value > 0 && detectionProgress.value < 100)
+  );
+});
+const shouldShowAiDetectionPanel = computed(() =>
+  isDetectionInProgressForResult.value && !hasDisplayableResultImage.value,
+);
+const resultPanelState = computed(() => {
+  if (detectionStatus.value === "failed") {
+    return "failed";
+  }
+
+  if (hasDisplayableResultImage.value) {
+    return "media";
+  }
+
+  if (shouldShowAiDetectionPanel.value) {
+    return "analyzing";
+  }
+
+  return "waiting";
+});
 
 // 指标卡片从检测状态派生，mock 配置只提供静态标题和 icon。
 const detectionDurationText = computed(() => {
