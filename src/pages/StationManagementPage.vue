@@ -264,6 +264,7 @@
 <script setup lang="ts">
 import { computed, onMounted, reactive, ref } from "vue";
 import BaseIcon from "@/components/base/BaseIcon.vue";
+import { apiUrl } from "@/services/api";
 
 defineOptions({
   name: "StationManagementPage",
@@ -434,7 +435,7 @@ const fetchStations = async () => {
   isLoadingStations.value = true;
 
   try {
-    const response = await fetch("http://127.0.0.1:8000/station-management/stations");
+    const response = await fetch(apiUrl("/station-management/stations"));
 
     if (!response.ok) {
       console.error("获取电站列表失败：", response.status, response.statusText);
@@ -646,8 +647,8 @@ const closeForm = () => {
 const saveStation = async () => {
   const isEditing = formMode.value === "edit" && editingStationId.value !== null;
   const url = isEditing
-    ? `http://127.0.0.1:8000/station-management/stations/${editingStationId.value}`
-    : "http://127.0.0.1:8000/station-management/stations";
+    ? apiUrl(`/station-management/stations/${editingStationId.value}`)
+    : apiUrl("/station-management/stations");
 
   try {
     const response = await fetch(url, {
@@ -691,7 +692,7 @@ const deleteStation = async (stationId: number) => {
   }
 
   try {
-    const response = await fetch(`http://127.0.0.1:8000/station-management/stations/${stationId}`, {
+    const response = await fetch(apiUrl(`/station-management/stations/${stationId}`), {
       method: "DELETE",
     });
 

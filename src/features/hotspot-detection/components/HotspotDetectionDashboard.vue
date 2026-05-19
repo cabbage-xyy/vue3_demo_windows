@@ -64,6 +64,7 @@ import type {
   MetricCard,
   RunLogItem,
 } from "@/features/hotspot-detection/types/dashboard";
+import { apiUrl, mediaImageUrl, mediaVideoUrl } from "@/services/api";
 
 defineOptions({
   name: "HotspotDetectionDashboard",
@@ -151,7 +152,7 @@ const normalizeDetectionTaskRecord = (record: DetectionTaskApiRecord): RunLogIte
 
 const fetchDetectionTaskRecords = async () => {
   try {
-    const response = await fetch("http://127.0.0.1:8000/detection-task-records");
+    const response = await fetch(apiUrl("/detection-task-records"));
 
     if (!response.ok) {
       console.error("获取检测记录失败：", response.status, response.statusText);
@@ -297,15 +298,11 @@ const formatDateTime = (date: Date) => {
 
 // 媒体预览由后端静态代理输出，前端只负责拼接安全的查询参数。
 const buildVideoPreviewUrl = (path: string) => {
-  return `http://127.0.0.1:8000/media/video?path=${encodeURIComponent(path)}`;
+  return mediaVideoUrl(path);
 };
 
 const buildImagePreviewUrl = (path: string) => {
-  if (/^(https?:|blob:|data:)/.test(path)) {
-    return path;
-  }
-
-  return `http://127.0.0.1:8000/media/image?path=${encodeURIComponent(path)}`;
+  return mediaImageUrl(path);
 };
 
 const getSelectedRoofContext = () => {
@@ -332,7 +329,7 @@ const validateVideoBelongsToSelectedRoof = async (videoPath: string) => {
   }
 
   try {
-    const response = await fetch("http://127.0.0.1:8000/station/validate-video-roof", {
+    const response = await fetch(apiUrl("/station/validate-video-roof"), {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -596,7 +593,7 @@ const pollDetectionStatus = (taskId: string) => {
 
   pollingTimer.value = window.setInterval(async () => {
     try {
-      const res = await fetch(`http://127.0.0.1:8000/detect/status/${taskId}`);
+      const res = await fetch(apiUrl(`/detect/status/${taskId}`));
       const data = await res.json();
       console.log("检测状态返回：", data);
 
@@ -710,7 +707,7 @@ const startDetection = async () => {
   });
 
   try {
-    const res = await fetch("http://127.0.0.1:8000/detect/start", {
+    const res = await fetch(apiUrl("/detect/start"), {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -777,7 +774,7 @@ const stopDetection = async () => {
   }
 
   try {
-    const res = await fetch(`http://127.0.0.1:8000/detect/stop/${currentTaskId.value}`, {
+    const res = await fetch(apiUrl(`/detect/stop/${currentTaskId.value}`), {
       method: "POST",
     });
 
@@ -795,7 +792,7 @@ const stopDetection = async () => {
 // 报告导出交给后端生成/保存，前端只处理文件名和保存路径选择。
 const exportLatestReport = async () => {
   try {
-    const latestReportResponse = await fetch("http://127.0.0.1:8000/report/latest");
+    const latestReportResponse = await fetch(apiUrl("/report/latest"));
 
     if (!latestReportResponse.ok) {
       console.error("导出报告失败：", latestReportResponse.status, latestReportResponse.statusText);
@@ -822,7 +819,7 @@ const exportLatestReport = async () => {
       return;
     }
 
-    const exportResponse = await fetch("http://127.0.0.1:8000/report/export", {
+    const exportResponse = await fetch(apiUrl("/report/export"), {
       method: "POST",
       headers: {
         "Content-Type": "application/json",

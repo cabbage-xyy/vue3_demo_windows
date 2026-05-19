@@ -238,8 +238,12 @@ header {
   align-content: start;
   gap: 10px;
   overflow-y: auto;
-  padding-right: 8px;
-  scrollbar-color: rgba(148, 163, 184, 0.75) transparent;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+.record-copy::-webkit-scrollbar {
+  display: none;
 }
 
 .record-row {

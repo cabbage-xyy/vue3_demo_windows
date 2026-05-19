@@ -321,6 +321,7 @@
 import { invoke } from "@tauri-apps/api/core";
 import { computed, onBeforeUnmount, onMounted, reactive, ref } from "vue";
 import BaseIcon from "@/components/base/BaseIcon.vue";
+import { apiUrl, mediaImageUrl } from "@/services/api";
 
 defineOptions({
   name: "HotspotManagementPage",
@@ -429,15 +430,7 @@ const pickStringList = (value: unknown): string[] => {
 };
 
 const buildImagePreviewUrl = (pathOrUrl: string) => {
-  if (!pathOrUrl) {
-    return "";
-  }
-
-  if (/^https?:\/\//i.test(pathOrUrl)) {
-    return pathOrUrl;
-  }
-
-  return `http://127.0.0.1:8000/media/image?path=${encodeURIComponent(pathOrUrl)}`;
+  return mediaImageUrl(pathOrUrl);
 };
 
 const collectDefectImagePaths = (record: HotspotManagementApiRecord) => {
@@ -574,7 +567,7 @@ const fetchHotspotRecords = async () => {
   isLoadingRecords.value = true;
 
   try {
-    const response = await fetch("http://127.0.0.1:8000/hotspot-management/records");
+    const response = await fetch(apiUrl("/hotspot-management/records"));
 
     if (!response.ok) {
       console.error("获取热斑检测记录失败：", response.status, response.statusText);
@@ -688,7 +681,7 @@ const saveRecord = async () => {
   }
 
   try {
-    const response = await fetch(`http://127.0.0.1:8000/hotspot-management/records/${editingRecordId.value}`, {
+    const response = await fetch(apiUrl(`/hotspot-management/records/${editingRecordId.value}`), {
       method: "PUT",
       headers: {
         "Content-Type": "application/json",
@@ -728,7 +721,7 @@ const deleteRecord = async (recordId: number) => {
   }
 
   try {
-    const response = await fetch(`http://127.0.0.1:8000/hotspot-management/records/${recordId}`, {
+    const response = await fetch(apiUrl(`/hotspot-management/records/${recordId}`), {
       method: "DELETE",
     });
 
@@ -878,11 +871,13 @@ onBeforeUnmount(() => {
 }
 
 .toolbar {
+  position: relative;
+  z-index: 2;
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 10px;
-  padding-right: 14px;
+  padding: 4px 14px 2px 0;
 }
 
 .toolbar-actions {
@@ -949,6 +944,16 @@ onBeforeUnmount(() => {
   background-repeat: no-repeat;
 }
 
+.filter-select:focus,
+.filter-select:focus-visible {
+  border-color: #79adff;
+  outline: none;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.95),
+    0 0 0 3px rgba(47, 130, 255, 0.18),
+    0 8px 18px rgba(47, 91, 150, 0.08);
+}
+
 .hotspot-table-scroll {
   position: relative;
   min-height: 0;
@@ -956,8 +961,9 @@ onBeforeUnmount(() => {
   overflow-x: auto;
   overflow-y: hidden;
   border-radius: 8px;
+  background: #ffffff;
   padding-bottom: 0;
-  scrollbar-color: #b8c7dc #eef3fa;
+  scrollbar-color: rgba(115, 139, 171, 0.42) transparent;
   scrollbar-width: auto;
 }
 
@@ -966,7 +972,7 @@ onBeforeUnmount(() => {
   width: max-content;
   min-width: 100%;
   border-collapse: separate;
-  border-spacing: 0;
+  border-spacing: 0 6px;
   table-layout: auto;
 }
 
@@ -975,7 +981,11 @@ onBeforeUnmount(() => {
 }
 
 .hotspot-table-scroll::-webkit-scrollbar {
-  height: 10px;
+  height: 8px;
+}
+
+.hotspot-table-scroll::-webkit-scrollbar:horizontal {
+  height: 8px;
 }
 
 .hotspot-table-scroll::-webkit-scrollbar:vertical {
@@ -985,13 +995,12 @@ onBeforeUnmount(() => {
 
 .hotspot-table-scroll::-webkit-scrollbar-track {
   border-radius: 999px;
-  background: #eef3fa;
+  background: transparent;
 }
 
 .hotspot-table-scroll::-webkit-scrollbar-thumb {
-  border: 2px solid #eef3fa;
   border-radius: 999px;
-  background: #b8c7dc;
+  background: rgba(115, 139, 171, 0.42);
 }
 
 .hotspot-table-scroll::-webkit-scrollbar-thumb:hover {
@@ -1009,7 +1018,7 @@ onBeforeUnmount(() => {
   border-top: 1px solid rgba(224, 232, 243, 0.85);
   border-bottom: 1px solid rgba(224, 232, 243, 0.85);
   background: #ffffff;
-  padding: 6px 20px 6px 0;
+  padding: 6px 14px 6px 0;
   text-align: left;
   vertical-align: middle;
   white-space: nowrap;
@@ -1077,6 +1086,15 @@ onBeforeUnmount(() => {
 .table-row > th:nth-child(7),
 .table-row > td.defect-image-cell {
   min-width: 84px;
+  padding-right: 10px;
+  text-align: center;
+}
+
+.table-row > th:nth-child(8),
+.table-row > th:nth-child(9),
+.table-row > td:nth-child(8),
+.table-row > td:nth-child(9) {
+  min-width: 86px;
   padding-right: 10px;
   text-align: center;
 }

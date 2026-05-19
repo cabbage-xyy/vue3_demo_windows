@@ -2,17 +2,28 @@
   <div class="app-shell">
     <!-- 应用级导航：只承载路由入口和当前页高亮，不放业务状态。 -->
     <aside class="app-sidebar" aria-label="主导航">
-      <RouterLink class="brand-panel" :to="{ name: routeNames.hotspotDetection }" aria-label="热斑检测">
+      <RouterLink
+        class="brand-panel"
+        :to="{ name: routeNames.hotspotDetection }"
+        aria-label="热斑检测"
+      >
         <svg class="brand-mark" viewBox="0 0 32 32" aria-hidden="true">
-          <path d="M5 8.3 15.6 3l10.8 5.4v15.2l-5.2 2.7V12.2L15.6 9.5l-5.5 2.7v14L5 23.6z" />
-          <path d="M12.6 13.6 16 11.9l8 4v6.3l-3.2 1.6v-5.7L16 15.7l-3.4 1.7z" />
+          <path
+            d="M5 8.3 15.6 3l10.8 5.4v15.2l-5.2 2.7V12.2L15.6 9.5l-5.5 2.7v14L5 23.6z"
+          />
+          <path
+            d="M12.6 13.6 16 11.9l8 4v6.3l-3.2 1.6v-5.7L16 15.7l-3.4 1.7z"
+          />
           <path d="M10.1 12.2 15.6 9.5v6.2l-5.5 2.7z" />
         </svg>
         <span class="brand-name">热斑检测</span>
       </RouterLink>
 
       <nav class="side-menu">
-        <template v-for="item in appNavigationItems" :key="item.label + item.icon">
+        <template
+          v-for="item in appNavigationItems"
+          :key="item.label + item.icon"
+        >
           <RouterLink
             v-if="item.routeName"
             class="side-menu-item"
@@ -26,10 +37,22 @@
             <span>{{ item.label }}</span>
           </RouterLink>
 
-          <button v-else type="button" class="side-menu-item" :title="item.description">
+          <button
+            v-else
+            type="button"
+            class="side-menu-item"
+            :title="item.description"
+          >
             <span class="menu-icon">
-              <span v-if="item.marker" class="menu-marker">{{ item.marker }}</span>
-              <BaseIcon v-else :name="item.icon" :size="20" :stroke-width="2.5" />
+              <span v-if="item.marker" class="menu-marker">{{
+                item.marker
+              }}</span>
+              <BaseIcon
+                v-else
+                :name="item.icon"
+                :size="20"
+                :stroke-width="2.5"
+              />
             </span>
             <span>{{ item.label }}</span>
           </button>
@@ -38,14 +61,21 @@
     </aside>
 
     <!-- 顶部工作台栏：页面标题、热斑检测筛选器和临时处理状态都集中在这里。 -->
-    <header class="app-header" :class="{ 'has-header-controls': showHeaderControls }">
+    <header
+      class="app-header"
+      :class="{ 'has-header-controls': showHeaderControls }"
+    >
       <div class="header-left">
         <div class="page-title">
           <span aria-hidden="true"></span>
           <strong>{{ pageTitle }}</strong>
         </div>
 
-        <div v-if="showHeaderControls" class="filter-cluster" aria-label="任务筛选">
+        <div
+          v-if="showHeaderControls"
+          class="filter-cluster"
+          aria-label="任务筛选"
+        >
           <template v-for="filter in headerFilters" :key="filter.id">
             <select
               v-if="filter.id === 'company'"
@@ -114,7 +144,12 @@
       </div>
 
       <div v-if="showHeaderControls" class="header-right">
-        <div class="status-display" role="status" aria-live="polite">
+        <div
+          class="status-display"
+          :data-status="processStatusText"
+          role="status"
+          aria-live="polite"
+        >
           <span>{{ processStatusText }}</span>
         </div>
       </div>
@@ -137,6 +172,7 @@ import { RouterLink, RouterView, useRoute } from "vue-router";
 import { appNavigationItems } from "@/app/navigation";
 import BaseIcon from "@/components/base/BaseIcon.vue";
 import { routeNames } from "@/router/route-names";
+import { apiUrl } from "@/services/api";
 
 defineOptions({
   name: "AppMainLayout",
@@ -169,7 +205,11 @@ interface StationRecord {
   roofName: string;
 }
 
-const pickTextField = (item: Record<string, unknown>, raw: Record<string, unknown>, keys: string[]) => {
+const pickTextField = (
+  item: Record<string, unknown>,
+  raw: Record<string, unknown>,
+  keys: string[],
+) => {
   for (const key of keys) {
     const value = item[key] ?? raw[key];
 
@@ -198,7 +238,9 @@ const emitHotspotSelectionChange = () => {
 
 // 下拉选项统一做去重和空值清洗，避免后端重复记录直接污染筛选器。
 const toUniqueNameOptions = (names: string[]) => {
-  return Array.from(new Set(names.map((name) => name.trim()).filter(Boolean))).map((name) => ({ name }));
+  return Array.from(
+    new Set(names.map((name) => name.trim()).filter(Boolean)),
+  ).map((name) => ({ name }));
 };
 
 const rebuildCompanyOptions = () => {
@@ -240,10 +282,14 @@ const rebuildRoofOptions = () => {
 // 电站资产数据只用于顶部筛选，不影响电站管理页面自己的表格数据。
 const fetchStationRecords = async () => {
   try {
-    const response = await fetch("http://127.0.0.1:8000/station-management/stations");
+    const response = await fetch(apiUrl("/station-management/stations"));
 
     if (!response.ok) {
-      console.error("获取电站管理列表失败：", response.status, response.statusText);
+      console.error(
+        "获取电站管理列表失败：",
+        response.status,
+        response.statusText,
+      );
       stationRecords.value = [];
       companyOptions.value = [];
       stationOptions.value = [];
@@ -266,9 +312,10 @@ const fetchStationRecords = async () => {
 
     stationRecords.value = data
       .map((item: Record<string, unknown>) => {
-        const raw = item.raw && typeof item.raw === "object"
-          ? (item.raw as Record<string, unknown>)
-          : {};
+        const raw =
+          item.raw && typeof item.raw === "object"
+            ? (item.raw as Record<string, unknown>)
+            : {};
 
         return {
           companyName: pickTextField(item, raw, [
@@ -295,7 +342,10 @@ const fetchStationRecords = async () => {
           ]),
         };
       })
-      .filter((item: StationRecord) => item.companyName && item.stationName && item.roofName);
+      .filter(
+        (item: StationRecord) =>
+          item.companyName && item.stationName && item.roofName,
+      );
 
     console.log("[顶部筛选] 解析后的站点记录：", stationRecords.value);
 
@@ -345,8 +395,12 @@ const handleRoofChange = () => {
   emitHotspotSelectionChange();
 };
 
-const pageTitle = computed(() => (typeof route.meta.title === "string" ? route.meta.title : "热斑检测"));
-const showHeaderControls = computed(() => route.name === routeNames.hotspotDetection);
+const pageTitle = computed(() =>
+  typeof route.meta.title === "string" ? route.meta.title : "热斑检测",
+);
+const showHeaderControls = computed(
+  () => route.name === routeNames.hotspotDetection,
+);
 
 const processStatusText = ref("未处理");
 
@@ -368,18 +422,25 @@ const resetHotspotDetectionHeaderState = () => {
 
 // 检测面板通过自定义事件通知处理状态，布局只负责展示文案。
 const syncProcessStatusText = () => {
-  processStatusText.value = localStorage.getItem("hotspotProcessStatus") || "未处理";
+  processStatusText.value =
+    localStorage.getItem("hotspotProcessStatus") || "未处理";
 };
 
 onMounted(() => {
   resetHotspotDetectionHeaderState();
   void fetchStationRecords();
-  window.addEventListener("hotspot-process-status-change", syncProcessStatusText);
+  window.addEventListener(
+    "hotspot-process-status-change",
+    syncProcessStatusText,
+  );
   window.addEventListener("focus", fetchStationRecords);
 });
 
 onBeforeUnmount(() => {
-  window.removeEventListener("hotspot-process-status-change", syncProcessStatusText);
+  window.removeEventListener(
+    "hotspot-process-status-change",
+    syncProcessStatusText,
+  );
   window.removeEventListener("focus", fetchStationRecords);
 });
 </script>
@@ -405,8 +466,7 @@ onBeforeUnmount(() => {
   min-width: 0;
   min-height: 0;
   background:
-    linear-gradient(180deg, rgba(36, 57, 87, 0.12), transparent 24%),
-    #182337;
+    linear-gradient(180deg, rgba(36, 57, 87, 0.12), transparent 24%), #182337;
   border-right: 1px solid rgba(20, 30, 48, 0.82);
   display: grid;
   grid-template-rows: 76px minmax(0, 1fr);
@@ -526,6 +586,7 @@ onBeforeUnmount(() => {
   display: flex;
   flex-wrap: nowrap;
   align-items: center;
+  justify-content: space-between;
   gap: 0;
   overflow: hidden;
 }
@@ -539,9 +600,9 @@ onBeforeUnmount(() => {
 }
 
 .header-left {
-  flex: 0 1 auto;
+  flex: 1 1 auto;
   overflow: hidden;
-  gap: 28px;
+  gap: 24px;
   flex-wrap: nowrap;
 }
 
@@ -571,7 +632,7 @@ onBeforeUnmount(() => {
   min-width: 0;
   overflow: hidden;
   justify-content: flex-start;
-  gap: 12px;
+  gap: 10px;
   flex-wrap: nowrap;
 }
 
@@ -597,7 +658,7 @@ onBeforeUnmount(() => {
 .filter-chip {
   min-width: 0;
   flex: 0 0 auto;
-  padding: 0 34px 0 18px;
+  padding: 0 32px 0 16px;
   justify-content: space-between;
   box-shadow: 0 7px 18px rgba(56, 84, 120, 0.04);
 }
@@ -608,24 +669,29 @@ onBeforeUnmount(() => {
   text-align: left;
   overflow: hidden;
   text-overflow: ellipsis;
-  background-image: linear-gradient(45deg, transparent 50%, #172033 50%),
+  background-image:
+    linear-gradient(45deg, transparent 50%, #172033 50%),
     linear-gradient(135deg, #172033 50%, transparent 50%);
   background-position:
     calc(100% - 19px) 18px,
     calc(100% - 13px) 18px;
-  background-size: 6px 6px, 6px 6px;
+  background-size:
+    6px 6px,
+    6px 6px;
   background-repeat: no-repeat;
 }
 
 .filter-select--company {
-  width: clamp(240px, 28vw, 320px);
-  flex: 0 1 clamp(240px, 28vw, 320px);
+  width: clamp(230px, 24vw, 300px);
+  flex: 0 1 clamp(230px, 24vw, 300px);
+  max-width: 300px;
 }
 
 .filter-select--station,
 .filter-select--roof {
-  width: clamp(170px, 18vw, 220px);
-  flex: 0 1 clamp(170px, 18vw, 220px);
+  width: clamp(132px, 12vw, 168px);
+  flex: 0 1 clamp(132px, 12vw, 168px);
+  max-width: 168px;
 }
 
 .filter-select:disabled {
@@ -645,7 +711,7 @@ onBeforeUnmount(() => {
 .header-right {
   flex: 0 0 auto;
   min-width: auto;
-  margin-left: 28px;
+  margin-left: 20px;
   overflow: visible;
   justify-content: flex-end;
   gap: 18px;
@@ -653,15 +719,44 @@ onBeforeUnmount(() => {
 
 .status-display {
   width: auto;
-  min-width: max-content;
+  min-width: 72px;
+  height: 32px;
   flex: 0 0 auto;
   border-color: transparent;
-  background: transparent;
+  border-radius: 999px;
+  background: #eef1f5;
+  color: #6b7280;
+  padding: 0 14px;
   font-weight: 600;
-  justify-content: flex-end;
+  justify-content: center;
   white-space: nowrap;
-  text-align: right;
+  text-align: center;
   cursor: default;
+}
+
+.status-display[data-status="已处理"],
+.status-display[data-status="检测完成"] {
+  background: #e8f8ef;
+  color: #14875a;
+}
+
+.status-display[data-status="处理中"],
+.status-display[data-status="检测中"] {
+  background: #e9f2ff;
+  color: #1f66d8;
+}
+
+.status-display[data-status="检测失败"],
+.status-display[data-status="失败"] {
+  background: #fff0f2;
+  color: #d72d45;
+}
+
+.status-display[data-status="待检测"],
+.status-display[data-status="未开始"],
+.status-display[data-status="未处理"] {
+  background: #eef1f5;
+  color: #667085;
 }
 
 .header-divider {
@@ -733,11 +828,11 @@ onBeforeUnmount(() => {
   }
 
   .header-left {
-    gap: 28px;
+    gap: 24px;
   }
 
   .filter-cluster {
-    gap: 12px;
+    gap: 10px;
   }
 }
 
@@ -757,7 +852,7 @@ onBeforeUnmount(() => {
   }
 
   .status-display {
-    justify-content: flex-end;
+    justify-content: center;
   }
 }
 
